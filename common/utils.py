@@ -1,4 +1,5 @@
 import torch
+from sklearn.model_selection import train_test_split
 from transformers import Wav2Vec2FeatureExtractor, Wav2Vec2ForSequenceClassification, Wav2Vec2ForPreTraining, \
     Wav2Vec2Processor, Wav2Vec2Model, EvalPrediction
 from datasets import load_dataset
@@ -10,6 +11,7 @@ import numpy as np
 import glob
 from datasets import load_dataset
 import soundfile as sf
+from sklearn.metrics import recall_score
 
 
 def read_audio_wavs(path, is_sorted=True):
@@ -25,12 +27,15 @@ def read_audio_wavs(path, is_sorted=True):
         return glob.glob('{}*.wav'.format(path))
 
 
-def create_labels_bea(audio_list, out_path):
+def create_csv_bea(audio_list, out_path, split_data):
     """Function to create csv file for the BEA Corpus with labels of the form:
     'file_name', 'label'
 
+    :param split_data: [Optional] int, If selected, dataset will be split into train and test.
+    `split_data' corresponds to the percentage of the size of the test set.
+    :param out_path: string, path to the desired output folder.
     :param audio_list: List, a list containing the wav files paths.
-    # :return: List, final csv list.
+    :return: List, final csv list.
     """
 
     if not os.path.exists(out_path):
@@ -45,9 +50,17 @@ def create_labels_bea(audio_list, out_path):
         final_list.sort()
 
     df = pd.DataFrame([sub.split(",") for sub in final_list], columns=['file_name', 'label', 'path'])
-    df.to_csv('{}labels.csv'.format(out_path), sep=',', index=False)
+    if split_data:
+        train_df, test_df = train_test_split(df, test_size=split_data, random_state=42)
+        train_df = train_df.reset_index(drop=True)  # reset idx count
+        train_df.to_csv('{}train.csv'.format(out_path), sep=',', index=False)
+        test_df = test_df.reset_index(drop=True)
+        test_df.to_csv('{}test.csv'.format(out_path), sep=',', index=False)
+        print("Train and test data saved to {}".format(out_path))
+    else:
+        df.to_csv('{}labels.csv'.format(out_path), sep=',', index=False)
     # np.savetxt('{}labels.csv'.format(out_path), final_list, fmt="%s", delimiter=' ')
-    print("Labels saved to {}".format(out_path))
+        print("Data saved to {}".format(out_path))
 
 
 """FUNCTIONS FOR AUDIO PREPROCESSING"""
@@ -80,7 +93,7 @@ class PreprocessFunction:
         return result
 
 
-def compute_metrics(p: EvalPrediction, is_regression=True):
+def compute_metrics(p: EvalPrediction, is_regression=False):
     preds = p.predictions[0] if isinstance(p.predictions, tuple) else p.predictions
     preds = np.squeeze(preds) if is_regression else np.argmax(preds, axis=1)
 
@@ -88,3 +101,4 @@ def compute_metrics(p: EvalPrediction, is_regression=True):
         return {"mse": ((preds - p.label_ids) ** 2).mean().item()}
     else:
         return {"accuracy": (preds == p.label_ids).astype(np.float32).mean().item()}
+        # return {"uar": recall_score(p.label_ids, preds, labels=[1, 0], average='macro')}
