@@ -14,11 +14,11 @@ import soundfile as sf
 from sklearn.metrics import recall_score
 
 
-def read_audio_wavs(path, is_sorted=True):
+def get_audio_paths(path, is_sorted=True):
     """Function to read wav files from a given path.
 
     :param path: str, Path to the folder containing the wav files.
-    :param sorted: bool, Whether to sort or not the List.
+    :param is_sorted: bool, Whether to sort or not the List.
     :return: List, returns the list of wavs read.
     """
     if is_sorted:
@@ -31,8 +31,7 @@ def create_csv_bea(audio_list, out_path, split_data):
     """Function to create csv file for the BEA Corpus with labels of the form:
     'file_name', 'label'
 
-    :param split_data: [Optional] int, If selected, dataset will be split into train and test.
-    `split_data' corresponds to the percentage of the size of the test set.
+    :param split_data: [Optional] int, corresponds to the percentage of the size of the test.txt set.
     :param out_path: string, path to the desired output folder.
     :param audio_list: List, a list containing the wav files paths.
     :return: List, final csv list.
@@ -50,17 +49,67 @@ def create_csv_bea(audio_list, out_path, split_data):
         final_list.sort()
 
     df = pd.DataFrame([sub.split(",") for sub in final_list], columns=['file_name', 'label', 'path'])
-    if split_data:
+
+    if os.path.isfile('{}train.csv'.format(out_path)) and os.path.isfile('{}test.csv'.format(out_path)):
+        print("Seems like csv data is already created in {}. Continuing to the next step...".format(out_path))
+    else:
         train_df, test_df = train_test_split(df, test_size=split_data, random_state=42)
         train_df = train_df.reset_index(drop=True)  # reset idx count
         train_df.to_csv('{}train.csv'.format(out_path), sep=',', index=False)
         test_df = test_df.reset_index(drop=True)
         test_df.to_csv('{}test.csv'.format(out_path), sep=',', index=False)
-        print("Train and test data saved to {}".format(out_path))
+        print("Train and test.txt data saved to {}".format(out_path))
+
+
+def crate_csv_bea_from_scp(scp_file, out_path, split_data):
+    """Function to create csv file for the BEA Corpus based on a 'scp' Kaldi file. Labels of the form:
+    'file_name', 'label'
+
+    :param split_data: [Optional] int, corresponds to the percentage of the size of the test.txt set.
+    :param out_path: string, path to the desired output folder.
+    :param scp_file: A Kaldi scp file of the form "[wav_name] [path_to_wav]".
+    :return: List, final csv list.
+    """
+
+    if not os.path.exists(out_path):
+        os.makedirs(out_path)
+
+    # read scp file
+    df = pd.read_csv(scp_file, names=['file_name', 'path'], delimiter=' ')
+    df['label'] = df.file_name.str[0:6]  # adding label column based on speakers.
+    # df['label'] = df.index # adding label column based on utterances.
+
+    if os.path.isfile('{}train.csv'.format(out_path)) and os.path.isfile('{}test.csv'.format(out_path)):
+        while True:
+            reply = input("Seems like csv data is already created in {}. Do you want to overwrite them? Yes or [No]".format(out_path) or "no")
+            if reply.lower() not in ('yes', 'no'):
+                print("Please, enter either 'yes' or 'no'")
+                continue
+            else:
+                if reply.lower() == 'yes':
+                    # Create the files again
+                    os.remove('{}train.csv'.format(out_path))
+                    os.remove('{}test.csv'.format(out_path))
+                    print("Files removed. Generating new files...")
+                    train_df, test_df = train_test_split(df, test_size=split_data, random_state=42)
+                    train_df = train_df.reset_index(drop=True)  # reset idx count
+                    train_df.to_csv('{}train.csv'.format(out_path), sep=',', index=False)
+                    test_df = test_df.reset_index(drop=True)
+                    test_df.to_csv('{}test.csv'.format(out_path), sep=',', index=False)
+                    print("Train and test.txt data saved to {}".format(out_path))
+                else:
+                    print("You chose {}. Continuing to the next step...", format(reply))
+                    pass
+                break
     else:
-        df.to_csv('{}labels.csv'.format(out_path), sep=',', index=False)
-    # np.savetxt('{}labels.csv'.format(out_path), final_list, fmt="%s", delimiter=' ')
-        print("Data saved to {}".format(out_path))
+        # Create the files
+        print("Generating new data files...")
+        train_df, test_df = train_test_split(df, test_size=split_data, random_state=42)
+        train_df = train_df.reset_index(drop=True)  # reset idx count
+        train_df.to_csv('{}train.csv'.format(out_path), sep=',', index=False)
+        test_df = test_df.reset_index(drop=True)
+        test_df.to_csv('{}test.csv'.format(out_path), sep=',', index=False)
+        print("Train and test.txt data saved to {}".format(out_path))
 
 
 """FUNCTIONS FOR AUDIO PREPROCESSING"""
