@@ -61,11 +61,11 @@ def create_csv_bea(audio_list, out_path, split_data):
         print("Train and test.txt data saved to {}".format(out_path))
 
 
-def crate_csv_bea_from_scp(scp_file, out_path, split_data):
+def crate_csv_bea_from_scp(scp_file, out_path, train_split_data):
     """Function to create csv file for the BEA Corpus based on a 'scp' Kaldi file. Labels of the form:
     'file_name', 'label'
 
-    :param split_data: [Optional] int, corresponds to the percentage of the size of the test.txt set.
+    :param train_split_data: [Optional] int, corresponds to the percentage of the size of the train set.
     :param out_path: string, path to the desired output folder.
     :param scp_file: A Kaldi scp file of the form "[wav_name] [path_to_wav]".
     :return: List, final csv list.
@@ -73,43 +73,46 @@ def crate_csv_bea_from_scp(scp_file, out_path, split_data):
 
     if not os.path.exists(out_path):
         os.makedirs(out_path)
+        
+    train_csv_path = '{}train.csv'.format(out_path)
+    test_csv_path = '{}test.csv'.format(out_path)
 
     # read scp file
     df = pd.read_csv(scp_file, names=['file_name', 'path'], delimiter=' ')
     df['label'] = df.file_name.str[0:6]  # adding label column based on speakers.
     # df['label'] = df.index # adding label column based on utterances.
 
-    if os.path.isfile('{}train.csv'.format(out_path)) and os.path.isfile('{}test.csv'.format(out_path)):
+    if os.path.isfile(train_csv_path) and os.path.isfile(test_csv_path):
         while True:
-            reply = input("Seems like csv data is already created in {}. Do you want to overwrite them? Yes or [No]".format(out_path) or "no")
+            reply = input("Seems like csv data is already created in {}. If you changed the size of the sets, "
+                          "you may want to generate the data again.\n"
+                          " Do you want to overwrite them? Yes or [No]: ".format(out_path) or "no")
             if reply.lower() not in ('yes', 'no'):
                 print("Please, enter either 'yes' or 'no'")
                 continue
             else:
                 if reply.lower() == 'yes':
                     # Create the files again
-                    os.remove('{}train.csv'.format(out_path))
-                    os.remove('{}test.csv'.format(out_path))
-                    print("Files removed. Generating new files...")
-                    train_df, test_df = train_test_split(df, test_size=split_data, random_state=42)
+                    print("Generating new files...")
+                    train_df, test_df = train_test_split(df, train_size=train_split_data, random_state=42)
                     train_df = train_df.reset_index(drop=True)  # reset idx count
-                    train_df.to_csv('{}train.csv'.format(out_path), sep=',', index=False)
+                    train_df.to_csv(train_csv_path, sep=',', index=False)
                     test_df = test_df.reset_index(drop=True)
-                    test_df.to_csv('{}test.csv'.format(out_path), sep=',', index=False)
-                    print("Train and test.txt data saved to {}".format(out_path))
+                    test_df.to_csv(test_csv_path, sep=',', index=False)
+                    print("Train and test data saved to {}".format(out_path))
                 else:
-                    print("You chose {}. Continuing to the next step...", format(reply))
+                    print("You chose {}. Continuing to the next step...".format(reply))
                     pass
                 break
     else:
         # Create the files
         print("Generating new data files...")
-        train_df, test_df = train_test_split(df, test_size=split_data, random_state=42)
+        train_df, test_df = train_test_split(df, train_size=train_split_data, random_state=42)
         train_df = train_df.reset_index(drop=True)  # reset idx count
-        train_df.to_csv('{}train.csv'.format(out_path), sep=',', index=False)
+        train_df.to_csv(train_csv_path, sep=',', index=False)
         test_df = test_df.reset_index(drop=True)
-        test_df.to_csv('{}test.csv'.format(out_path), sep=',', index=False)
-        print("Train and test.txt data saved to {}".format(out_path))
+        test_df.to_csv(test_csv_path, sep=',', index=False)
+        print("Train and test data saved to {}".format(out_path))
 
 
 """FUNCTIONS FOR AUDIO PREPROCESSING"""

@@ -21,7 +21,7 @@ def train():
     scp_file = "/srv/data/egasj/corpora/labels/{}/wav.txt".format(task)
 
     # Getting data info ready
-    crate_csv_bea_from_scp(scp_file=scp_file, out_path=save_path, split_data=0.9)
+    crate_csv_bea_from_scp(scp_file=scp_file, out_path=save_path, train_split_data=0.85)
 
     # Loading the dataset into 'load_datasets' class
     data_files = {
@@ -29,7 +29,8 @@ def train():
         'validation': '/srv/data/egasj/corpora/labels/bea16k/test.csv'
     }
 
-    bea16k_set = load_dataset('csv', data_files=data_files, delimiter=',', download_mode=DownloadMode['REUSE_DATASET_IF_EXISTS'])
+    bea16k_set = load_dataset('csv', data_files=data_files, delimiter=',', cache_dir='/srv/data/egasj/hf_cache/',
+                              download_mode=DownloadMode['REUSE_DATASET_IF_EXISTS'])
     train_set = bea16k_set['train']
     val_set = bea16k_set['validation']
 
@@ -58,19 +59,25 @@ def train():
 
     pp = utils.PreprocessFunction(processor, label_list, target_sampling_rate)
 
+    print("Generating the datasets...\n")
     # Preprocess data
     train_dataset = train_set.map(
         pp.preprocess_function,
-        batch_size=8,
+        batch_size=100,
         batched=True,
-        num_proc=4
+        num_proc=16
+        # keep_in_memory=True
     )
+    print("Train dataset generated successfully...\n")
+
     eval_dataset = val_set.map(
         pp.preprocess_function,
-        batch_size=4,
+        batch_size=100,
         batched=True,
-        num_proc=2
+        num_proc=16
+        # keep_in_memory=True
     )
+    print("Validation dataset generated successfully...\n")
 
     # Setting-up the trainer
     data_collator = utils_fine_tune.DataCollatorCTCWithPadding(processor=processor, padding=True)
@@ -95,8 +102,8 @@ def train():
         training_args = TrainingArguments(
             output_dir=out_dir,
             # output_dir="/content/gdrive/MyDrive/wav2vec2-xlsr-greek-speech-emotion-recognition"
-            per_device_train_batch_size=1,
-            per_device_eval_batch_size=1,
+            per_device_train_batch_size=8,
+            per_device_eval_batch_size=4,
             gradient_accumulation_steps=1,
             evaluation_strategy="steps",
             num_train_epochs=num_train_epochs,
