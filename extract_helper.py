@@ -1,5 +1,9 @@
 import numpy as np
 
+from common import utils
+
+config = utils.load_config('config.yml')
+
 
 def extract_embeddings(dataset_list, feature_extractor, batch_size, model):
     """Function to extract embeddings (convolutional features and hidden states) from a given wav2vec2 model
@@ -51,8 +55,8 @@ def extract_embeddings(dataset_list, feature_extractor, batch_size, model):
 
         embs = np.asanyarray(np.vstack(list_convs))
         hiddens = np.asanyarray(np.vstack(list_hidden))
-        path_embs = "../data/{0}/embeddings/{1}_convs_wav2vec2".format(extract.task)
-        path_hiddens = "../data/{0}/embeddings/{1}_hiddens_wav2vec2".format(extract.task)
+        path_embs = "data/{0}/embeddings/convs_wav2vec2".format(config['task'])
+        path_hiddens = "data/{0}/embeddings/hiddens_wav2vec2".format(config['task'])
         np.save(path_embs, embs)
         np.save(path_hiddens, hiddens)
         print("Convolutional embeddings saved to {}. \n Hidden states saved to {}".format(path_embs, path_hiddens))

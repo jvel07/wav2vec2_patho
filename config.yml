@@ -6,3 +6,4 @@ paths:
   to_labels: 'audio/labels/diagnosis-keep-diagA-75.txt'
   to_save_csv: 'data/demencia_wav16k_selected225-B/'
   audio_path: '/srv/data/egasj/corpora/demencia_wav16k_selected225-B/'
+  out_embeddings: 'data/demencia_wav16k_selected225-B/embeddings/'
