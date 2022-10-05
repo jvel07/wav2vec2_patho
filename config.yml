@@ -1,0 +1,8 @@
+task: 'demencia_wav16k_selected225-B'
+pretrained_model_details:
+  checkpoint_path: 'runs/bea16k_1.0_hungarian/checkpoint-1130/'
+#  'jonatasgrosman/wav2vec2-large-xlsr-53-hungarian'
+paths:
+  to_labels: 'audio/labels/diagnosis-keep-diagA-75.txt'
+  to_save_csv: 'data/demencia_wav16k_selected225-B/'
+  audio_path: '/srv/data/egasj/corpora/demencia_wav16k_selected225-B/'

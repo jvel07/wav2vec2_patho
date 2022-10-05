@@ -1,3 +1,4 @@
+import yaml
 from sklearn.model_selection import train_test_split
 import glob
 import os
@@ -7,6 +8,13 @@ import pandas as pd
 import soundfile as sf
 from sklearn.model_selection import train_test_split
 from transformers import EvalPrediction
+from yaml import SafeLoader
+
+
+def load_config(path_yaml):
+    with open(path_yaml) as f:
+        data = yaml.load(f, Loader=SafeLoader)
+    return data
 
 
 def get_audio_paths(path, is_sorted=True):
