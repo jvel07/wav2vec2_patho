@@ -1,17 +1,12 @@
-import torch
 from sklearn.model_selection import train_test_split
-from transformers import Wav2Vec2FeatureExtractor, Wav2Vec2ForSequenceClassification, Wav2Vec2ForPreTraining, \
-    Wav2Vec2Processor, Wav2Vec2Model, EvalPrediction
-from datasets import load_dataset
-import pandas as pd
-from transformers import pipeline
-import os
-import re
-import numpy as np
 import glob
-from datasets import load_dataset
+import os
+
+import numpy as np
+import pandas as pd
 import soundfile as sf
-from sklearn.metrics import recall_score
+from sklearn.model_selection import train_test_split
+from transformers import EvalPrediction
 
 
 def get_audio_paths(path, is_sorted=True):
@@ -73,7 +68,7 @@ def crate_csv_bea_from_scp(scp_file, out_path, train_split_data):
 
     if not os.path.exists(out_path):
         os.makedirs(out_path)
-        
+
     train_csv_path = '{}train.csv'.format(out_path)
     test_csv_path = '{}test.csv'.format(out_path)
 
@@ -116,6 +111,8 @@ def crate_csv_bea_from_scp(scp_file, out_path, train_split_data):
 
 
 """FUNCTIONS FOR AUDIO PREPROCESSING"""
+
+
 def speech_to_array(path):
     speech, _ = sf.read(path)
     #     batch["speech"] = speech
@@ -154,3 +151,9 @@ def compute_metrics(p: EvalPrediction, is_regression=False):
     else:
         return {"accuracy": (preds == p.label_ids).astype(np.float32).mean().item()}
         # return {"uar": recall_score(p.label_ids, preds, labels=[1, 0], average='macro')}
+
+
+def map_to_array(batch):
+    speech, _ = sf.read(batch["path"])
+    batch["speech"] = speech
+    return batch
