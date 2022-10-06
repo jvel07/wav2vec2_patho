@@ -17,7 +17,7 @@ def map_to_array(batch):
 
 
 # Loading configuration
-config = utils.load_config('config.yml')
+config = utils.load_config('recipes/config_demencia16k-225B.yml')
 model_name = config['pretrained_model_details']['checkpoint_path']
 
 # Loading feature extractor and model
@@ -49,4 +49,4 @@ train_dataset = dataset["train"]
 train_dataset = train_dataset.map(map_to_array)
 
 # EXTRACT FEATURES
-extract_embeddings(dataset_list=[train_dataset], feature_extractor=feature_extractor, batch_size=1, model=model)
+extract_embeddings(dataset_list=[train_dataset], feature_extractor=feature_extractor, model=model)

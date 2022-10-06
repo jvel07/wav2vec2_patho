@@ -7,3 +7,4 @@ paths:
   to_save_csv: 'data/demencia_wav16k_selected225-B/'
   audio_path: '/srv/data/egasj/corpora/demencia_wav16k_selected225-B/'
   out_embeddings: 'data/demencia_wav16k_selected225-B/embeddings/'
+sampling_rate: 16000
