@@ -49,4 +49,4 @@ train_dataset = dataset["train"]
 train_dataset = train_dataset.map(map_to_array)
 
 # EXTRACT FEATURES
-extract_embeddings(dataset_list=[train_dataset], feature_extractor=feature_extractor, model=model)
+extract_embeddings(dataset_list=[train_dataset], feature_extractor=feature_extractor, model=model, chunk_size=30)

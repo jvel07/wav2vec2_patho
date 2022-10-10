@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 
 from common import utils
@@ -5,9 +7,10 @@ from common import utils
 config = utils.load_config('recipes/config_demencia16k-225B.yml')
 
 
-def extract_embeddings(dataset_list, feature_extractor, model):
+def extract_embeddings(dataset_list, feature_extractor, model, chunk_size):
     """Function to extract embeddings (convolutional features and hidden states) from a given wav2vec2 model
 
+    :param chunk_size: int, Size of the chunks to take for each utterance.
     :param model: Torch Wav2Vec2 pre-trained model (loaded).
     :param dataset_list: List. Use it for more than one set (e.g., dev, test).
     :param feature_extractor: Object. An instance of either Wav2Vec2Processor or Wav2Vec2FeatureExtractor.
@@ -17,7 +20,7 @@ def extract_embeddings(dataset_list, feature_extractor, model):
     # list_convs = []
     # list_hidden = []
     sampling_rate = config['sampling_rate']
-    chunk_size = 60
+    chunk_size = chunk_size
     frame_step = chunk_size * sampling_rate
     print("Feature extraction process started...")
     for index, dataset in enumerate(dataset_list):
@@ -55,12 +58,13 @@ def extract_embeddings(dataset_list, feature_extractor, model):
                     hidden_array = np.concatenate((hidden_array, current_hidden), axis=1)
                 # list_hidden.append(hidden)
 
-            print("Processed {}%...".format(i))
+            print("Processed utterance {}...".format(i))
 
         embs = np.asanyarray(np.vstack(conv_array))
         hiddens = np.asanyarray(np.vstack(hidden_array))
         path_embs = "{0}/convs_wav2vec2".format(config['paths']['out_embeddings'], config['task'])
         path_hiddens = "{0}/hiddens_wav2vec2".format(config['paths']['out_embeddings'], config['task'])
+        os.makedirs(config['paths']['out_embeddings'], exist_ok=True)
         np.save(path_embs, embs)
         np.save(path_hiddens, hiddens)
         print("Convolutional embeddings saved to {}. \n Hidden states saved to {}".format(path_embs, path_hiddens))
