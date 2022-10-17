@@ -6,14 +6,8 @@ import soundfile as sf
 from datasets import load_dataset, DownloadMode
 from transformers import Wav2Vec2FeatureExtractor, Wav2Vec2Model
 
-from extract_helper import extract_embeddings, extract_embeddings_2, extract_embeddings_gabor
+from extract_helper import extract_embeddings, extract_embeddings_original, extract_embeddings_gabor
 from common import utils
-
-
-def map_to_array(batch):
-    speech, _ = sf.read(batch["path"])
-    batch["speech"] = speech
-    return batch
 
 
 # Loading configuration
@@ -47,9 +41,9 @@ data_files = {
 dataset = load_dataset("csv", data_files=data_files, delimiter=",", cache_dir=config['hf_cache_dir'],
                        download_mode=DownloadMode['REUSE_DATASET_IF_EXISTS'])
 train_dataset = dataset["train"]
-train_dataset = train_dataset.map(map_to_array)
+train_dataset = train_dataset.map(utils.map_to_array)
 
 # EXTRACT FEATURES
-extract_embeddings(dataset_list=[train_dataset], feature_extractor=feature_extractor, model=model, chunk_size=30)
-# extract_embeddings_2(dataset_list=[train_dataset], feature_extractor=feature_extractor, model=model, batch_size=1)
+# extract_embeddings(dataset_list=[train_dataset], feature_extractor=feature_extractor, model=model, chunk_size=30)
+extract_embeddings_original(dataset_list=[train_dataset], feature_extractor=feature_extractor, model=model)
 # extract_embeddings_gabor(dataset_list=[train_dataset], feature_extractor=feature_extractor, model=model, chunk_size=30)
