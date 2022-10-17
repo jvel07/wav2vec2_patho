@@ -17,6 +17,13 @@ def load_config(path_yaml):
     return data
 
 
+def save_data_iteratively(file_path, data):
+    with open(file_path, 'w') as f:
+        np.savetxt(f, data.squeeze(), newline=" ", fmt="%s",)
+        f.write('\n')
+        f.close()
+
+
 def get_audio_paths(path, is_sorted=True):
     """Function to read wav files from a given path.
 

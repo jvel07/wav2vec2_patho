@@ -25,7 +25,7 @@ def train():
 
     # Loading the dataset into 'load_datasets' class
     data_files = {
-        'train': '/srv/data/egasj/corpora/labels/bea16k/train.csv',
+        'train': '/srv/data/egasj/corpora/labels/bea16k/labels.csv',
         'validation': '/srv/data/egasj/corpora/labels/bea16k/test.csv'
     }
 
