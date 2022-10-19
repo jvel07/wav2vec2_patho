@@ -6,7 +6,7 @@ import soundfile as sf
 from datasets import load_dataset, DownloadMode
 from transformers import Wav2Vec2FeatureExtractor, Wav2Vec2Model
 
-from extract_helper import extract_embeddings, extract_embeddings_original, extract_embeddings_gabor
+from extract_helper import extract_embeddings, extract_embeddings_original, extract_embeddings_gabor, extract_embeddings_and_save
 from common import utils
 
 
@@ -45,5 +45,6 @@ train_dataset = train_dataset.map(utils.map_to_array)
 
 # EXTRACT FEATURES
 # extract_embeddings(dataset_list=[train_dataset], feature_extractor=feature_extractor, model=model, chunk_size=30)
-extract_embeddings_original(dataset_list=[train_dataset], feature_extractor=feature_extractor, model=model)
+# extract_embeddings_original(dataset_list=[train_dataset], feature_extractor=feature_extractor, model=model)
+extract_embeddings_and_save(dataset_list=[train_dataset], feature_extractor=feature_extractor, model=model, chunk_size=30)
 # extract_embeddings_gabor(dataset_list=[train_dataset], feature_extractor=feature_extractor, model=model, chunk_size=30)

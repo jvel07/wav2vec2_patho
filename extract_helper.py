@@ -53,9 +53,9 @@ def extract_embeddings(dataset_list, feature_extractor, model, chunk_size):
                 current_segment = utterance[frame:frame + frame_step]
 
                 # padding when current_segment is smaller than frame_step
-                if len(current_segment) < frame_step:
-                    current_segment = list(mit.padded(current_segment, 0.00000000001, frame_step))
-                print(len(current_segment))
+                # if len(current_segment) < frame_step:
+                #     current_segment = list(mit.padded(current_segment, 0.00000000001, frame_step))
+                # print(len(current_segment))
 
                 # computing features for the segment
                 input_values_segment = feature_extractor(current_segment, return_tensors="pt", padding=True,
@@ -95,6 +95,89 @@ def extract_embeddings(dataset_list, feature_extractor, model, chunk_size):
         np.save(path_hiddens, hiddens)
         print("Convolutional embeddings saved to {}. \n Hidden states saved to {}".format(path_embs, path_hiddens))
         print("/n With shapes {}, and {}, respectively.".format(convs.shape, hiddens.shape))
+
+
+def extract_embeddings_and_save(dataset_list, feature_extractor, model, chunk_size):
+    """Function to extract embeddings (convolutional features and hidden states) from a given wav2vec2 model
+
+    :param chunk_size: int, Size of the chunks to take for each utterance.
+    :param model: Torch Wav2Vec2 pre-trained model (loaded).
+    :param dataset_list: List. Use it for more than one set (e.g., dev, test).
+    :param feature_extractor: Object. An instance of either Wav2Vec2Processor or Wav2Vec2FeatureExtractor.
+    :return:
+    """
+
+    model_used = config['pretrained_model_details']['checkpoint_path'].split('/')[-2]
+    os.makedirs(config['paths']['out_embeddings'], exist_ok=True)
+
+    sampling_rate = config['sampling_rate']
+    chunk_size = chunk_size
+    frame_step = chunk_size * sampling_rate
+
+    # Iterating datasets
+    for index, dataset in enumerate(dataset_list):  # this for is just in case of the existence of 'dev', 'test' datasets
+        list_convs = []
+        list_hiddens = []
+
+        print("Computing general features using Feature Extractor...")
+        tot_input_values = feature_extractor(dataset['speech'], return_tensors="pt", padding=True,
+                                             feature_size=1, sampling_rate=sampling_rate)
+
+        # iterating utterances
+        for i in range(0, len(dataset)):
+            list_current_utterance_convs = []
+            list_current_utterance_hiddens = []
+
+            # getting the i utterance
+            utterance = dataset[i]["speech"]
+            print("Processing utterance {}...".format(i))
+
+            # iterating frames of the utterance
+            for frame in range(0, len(utterance), frame_step):
+                # chunking the utterance
+                current_segment = utterance[frame:frame + frame_step]
+
+                # padding when current_segment is smaller than frame_step
+                # if len(current_segment) < frame_step:
+                #     current_segment = list(mit.padded(current_segment, 0.00000000001, frame_step))
+                # print(len(current_segment))
+
+                # computing features for the segment
+                # input_values_segment = feature_extractor(current_segment, return_tensors="pt", padding=True,
+                #                                          feature_size=1, sampling_rate=sampling_rate)
+                if len(current_segment) < sampling_rate / 25:
+                    break
+
+                # getting the outputs from the fine-tuned model
+                with torch.no_grad():
+                    # outputs_segment = model(input_values_segment.input_values, input_values_segment.attention_mask)
+                    outputs_segment = model(torch.unsqueeze(tot_input_values.input_values[i][current_segment], dim=0),
+                                            torch.unsqueeze(tot_input_values.attention_mask[i][current_segment], dim=0))
+
+                # extract features from the last CNN layer
+                segment_convs = outputs_segment.extract_features.detach().numpy()
+                list_current_utterance_convs.append(segment_convs)
+
+                # extract features corresponding to the sequence of last hidden states
+                segment_hidden = outputs_segment.last_hidden_state.detach().numpy()
+                list_current_utterance_hiddens.append(segment_hidden)
+
+            # accumulating each wav into a list
+            current_utterance_convs = np.concatenate(list_current_utterance_convs, axis=1)
+            current_utterance_convs_pooled = np.squeeze(np.mean(current_utterance_convs, axis=1))
+            # print(current_utterance_convs_pooled.shape)
+
+            current_utterance_hiddens = np.concatenate(list_current_utterance_hiddens, axis=1)
+            current_utterance_hidden_pooled = np.squeeze(np.mean(current_utterance_hiddens, axis=1))
+
+            # defining paths and saving
+            utterance_name = os.path.basename(dataset[i]['path']).split(".")[0]
+            path_embs = "{0}/{1}_convs_wav2vec2_{2}".format(config['paths']['out_embeddings'], model_used, utterance_name)
+            path_hiddens = "{0}/{1}_hiddens_wav2vec2_{2}".format(config['paths']['out_embeddings'], model_used, utterance_name)
+            np.save(path_embs, current_utterance_convs_pooled)
+            np.save(path_hiddens, current_utterance_hidden_pooled)
+            print("Convolutional embeddings saved to {}. \n Hidden states saved to {}".format(path_embs, path_hiddens))
+            # print("/n With shapes {}, and {}, respectively.".format(current_utterance_convs_pooled.shape, current_utterance_hidden_pooled.shape))
 
 
 def extract_embeddings_original(dataset_list, feature_extractor, model):
