@@ -3,12 +3,15 @@ task: 'demencia_wav16k_selected225-B'
 hf_cache_dir: '/home/user/Documents/hf_cache/'
 pretrained_model_details:
 #  checkpoint_path: 'runs/bea16k_1.0_hungarian/checkpoint-1130/'
-#  checkpoint_path: 'data/bea16k_hungarian/bea16k_1.0_hungarian/checkpoint-1130'
-  checkpoint_path: 'jonatasgrosman/wav2vec2-large-xlsr-53-hungarian'
+  checkpoint_path: '/home/user/Documents/data/bea16k_hungarian/bea16k_3.0_hungarian/checkpoint-3390'
+#  checkpoint_path: '/home/user/Documents/data/bea16k_hungarian/bea16k_5.0_hungarian/checkpoint-5650'
+#  checkpoint_path: 'jonatasgrosman/wav2vec2-large-xlsr-53-hungarian'
 paths:
   to_labels: 'audio/labels/diagnosis-keep-diagA-75.txt'
   to_save_csv: 'data/demencia_wav16k_selected225-B/'
 #  audio_path: '/srv/data/egasj/corpora/demencia_wav16k_selected225-B/'
   audio_path: '/home/user/Documents/corpora/wav16k_selected225-B/'
-  out_embeddings: 'data/demencia_wav16k_selected225-B/embeddings'
+  out_embeddings: 'data/demencia_wav16k_selected225-B/embeddings/'
 sampling_rate: 16000
+discrimination:
+  emb_type: 'convs'

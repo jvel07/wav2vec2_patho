@@ -7,10 +7,10 @@ import more_itertools as mit
 from common import utils
 
 
-config = utils.load_config('recipes/config_demencia16k-225B.yml')
+# config = utils.load_config('recipes/config_demencia16k-225B.yml')
 
 
-def extract_embeddings(dataset_list, feature_extractor, model, chunk_size):
+def extract_embeddings(dataset_list, feature_extractor, model, chunk_size, config):
     """Function to extract embeddings (convolutional features and hidden states) from a given wav2vec2 model
 
     :param chunk_size: int, Size of the chunks to take for each utterance.
@@ -21,8 +21,8 @@ def extract_embeddings(dataset_list, feature_extractor, model, chunk_size):
     """
 
     model_used = config['pretrained_model_details']['checkpoint_path'].split('/')[-2]
-    path_embs = "{0}/{1}_convs_wav2vec2".format(config['paths']['out_embeddings'], model_used)
-    path_hiddens = "{0}/{1}_hiddens_wav2vec2".format(config['paths']['out_embeddings'], model_used)
+    path_embs = "{0}/convs/{1}_convs_wav2vec2".format(config['paths']['out_embeddings'], model_used)
+    path_hiddens = "{0}/hiddens/{1}_hiddens_wav2vec2".format(config['paths']['out_embeddings'], model_used)
     os.makedirs(config['paths']['out_embeddings'], exist_ok=True)
 
     sampling_rate = config['sampling_rate']
@@ -97,7 +97,7 @@ def extract_embeddings(dataset_list, feature_extractor, model, chunk_size):
         print("/n With shapes {}, and {}, respectively.".format(convs.shape, hiddens.shape))
 
 
-def extract_embeddings_and_save(dataset_list, feature_extractor, model, chunk_size):
+def extract_embeddings_and_save(dataset_list, feature_extractor, model, chunk_size, config):
     """Function to extract embeddings (convolutional features and hidden states) from a given wav2vec2 model
 
     :param chunk_size: int, Size of the chunks to take for each utterance.
@@ -108,7 +108,6 @@ def extract_embeddings_and_save(dataset_list, feature_extractor, model, chunk_si
     """
 
     model_used = config['pretrained_model_details']['checkpoint_path'].split('/')[-2]
-    os.makedirs(config['paths']['out_embeddings'], exist_ok=True)
 
     sampling_rate = config['sampling_rate']
     chunk_size = chunk_size
@@ -120,8 +119,8 @@ def extract_embeddings_and_save(dataset_list, feature_extractor, model, chunk_si
         list_hiddens = []
 
         print("Computing general features using Feature Extractor...")
-        tot_input_values = feature_extractor(dataset['speech'], return_tensors="pt", padding=True,
-                                             feature_size=1, sampling_rate=sampling_rate)
+        # tot_input_values = feature_extractor(dataset['speech'], return_tensors="pt", padding=True,
+        #                                      feature_size=1, sampling_rate=sampling_rate)
 
         # iterating utterances
         for i in range(0, len(dataset)):
@@ -143,16 +142,16 @@ def extract_embeddings_and_save(dataset_list, feature_extractor, model, chunk_si
                 # print(len(current_segment))
 
                 # computing features for the segment
-                # input_values_segment = feature_extractor(current_segment, return_tensors="pt", padding=True,
-                #                                          feature_size=1, sampling_rate=sampling_rate)
+                input_values_segment = feature_extractor(current_segment, return_tensors="pt", padding=True,
+                                                         feature_size=1, sampling_rate=sampling_rate)
                 if len(current_segment) < sampling_rate / 25:
                     break
 
                 # getting the outputs from the fine-tuned model
                 with torch.no_grad():
-                    # outputs_segment = model(input_values_segment.input_values, input_values_segment.attention_mask)
-                    outputs_segment = model(torch.unsqueeze(tot_input_values.input_values[i][current_segment], dim=0),
-                                            torch.unsqueeze(tot_input_values.attention_mask[i][current_segment], dim=0))
+                    outputs_segment = model(input_values_segment.input_values, input_values_segment.attention_mask)
+                    # outputs_segment = model(torch.unsqueeze(tot_input_values.input_values[i][current_segment], dim=0),
+                    #                         torch.unsqueeze(tot_input_values.attention_mask[i][current_segment], dim=0))
 
                 # extract features from the last CNN layer
                 segment_convs = outputs_segment.extract_features.detach().numpy()
@@ -172,15 +171,17 @@ def extract_embeddings_and_save(dataset_list, feature_extractor, model, chunk_si
 
             # defining paths and saving
             utterance_name = os.path.basename(dataset[i]['path']).split(".")[0]
-            path_embs = "{0}/{1}_convs_wav2vec2_{2}".format(config['paths']['out_embeddings'], model_used, utterance_name)
-            path_hiddens = "{0}/{1}_hiddens_wav2vec2_{2}".format(config['paths']['out_embeddings'], model_used, utterance_name)
-            np.save(path_embs, current_utterance_convs_pooled)
-            np.save(path_hiddens, current_utterance_hidden_pooled)
-            print("Convolutional embeddings saved to {}. \n Hidden states saved to {}".format(path_embs, path_hiddens))
+            path_embs = config['paths']['out_embeddings'] + model_used
+            os.makedirs(path_embs, exist_ok=True)
+            file_convs = "{0}/convs_wav2vec2_{1}".format(path_embs, utterance_name)
+            file_hiddens = "{0}/hiddens_wav2vec2_{1}".format(path_embs, utterance_name)
+            np.save(file_convs, current_utterance_convs_pooled)
+            np.save(file_hiddens, current_utterance_hidden_pooled)
+            print("Utterance embeddings (convs and hidden states) saved to {} and \n {}".format(file_convs, file_hiddens))
             # print("/n With shapes {}, and {}, respectively.".format(current_utterance_convs_pooled.shape, current_utterance_hidden_pooled.shape))
 
 
-def extract_embeddings_original(dataset_list, feature_extractor, model):
+def extract_embeddings_original(dataset_list, feature_extractor, model, config):
     """Function to extract embeddings (convolutional features and hidden states) from a given wav2vec2 model
 
     :param chunk_size: int, Size of the chunks to take for each utterance.
@@ -253,7 +254,7 @@ def extract_embeddings_original(dataset_list, feature_extractor, model):
         print("/n With shapes {}, and {}, respectively.".format(convs.shape, hiddens.shape))
 
 
-def extract_embeddings_gabor(dataset_list, feature_extractor, model, chunk_size):
+def extract_embeddings_gabor(dataset_list, feature_extractor, model, chunk_size, config):
     """Function to extract embeddings (convolutional features and hidden states) from a given wav2vec2 model
 
     :param chunk_size: int, Size of the chunks to take for each utterance.

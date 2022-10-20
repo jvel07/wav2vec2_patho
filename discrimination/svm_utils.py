@@ -27,34 +27,38 @@ def train_RBF_cpu(X, y, X_eval, c):
     return y_prob
 
 
-def train_loocv_svm(X, y, c):
+def train_loocv_svm(x, y, c):
     loo = LeaveOneOut()
     svc = svm.LinearSVC(C=c, class_weight='balanced', max_iter=100000)
-    array_posteriors = np.zeros((len(y), len(np.unique(y))))
+    # svc = sk.svm.SVC(kernel='linear', C=c, probability=True, verbose=0, max_iter=100000, class_weight='balanced')
 
-    list_trues = []
-    list_preds = []
+    array_preds = np.zeros((len(y),))
+    array_trues = np.zeros((len(y),))
+    array_probs = np.zeros((len(y), len(np.unique(y))))
 
-    for train_index, test_index in loo.split(X, y):
-        X_train, X_test = X[train_index], X[test_index]
+    for train_index, test_index in loo.split(X=x):
+        x_train, x_test = x[train_index], x[test_index]
         y_train, y_test = y[train_index], y[test_index]
-        svc.fit(X_train, y_train)
+        svc.fit(x_train, y_train)
 
-        y_prob = svc._predict_proba_lr(X_test)
-        array_posteriors[test_index] = y_prob
-        # preds = np.argmax(array_posteriors, axis=1)
-        preds = array_posteriors[:, 1]
-        list_preds.append(preds.round())
-        list_trues.append(y_test)
+        pred = svc.predict(x_test)
+        # y_prob = svc.predict_proba(x_test)
+        y_prob = svc._predict_proba_lr(x_test)
 
-    return list_preds, np.squeeze(list_trues), array_posteriors
+        array_preds[test_index] = pred
+        array_trues[test_index] = y_test
+        array_probs[test_index] = y_prob
+
+    return array_preds, array_trues, array_probs
 
 
 # Classifier switcher
-def train_svm(svm_type, X, y, X_eval, C):
+def train_svm(svm_type, C, X, y, X_eval=None):
     switcher = {
         'linear': lambda: train_linearsvm_cpu(X, y, X_eval, C),
         'linear-gpu': lambda: train_linearsvm_gpu(X, y, X_eval, C),
-        'rbf': lambda: train_RBF_cpu(X, y, X_eval, C)
+        'rbf': lambda: train_RBF_cpu(X, y, X_eval, C),
+        'linear-loocv': lambda: train_loocv_svm(X, y, C)
     }
-    return switcher.get(svm_type, lambda: "Error {} is not an option! Choose from linear and rbf.".format(svm_type))()
+    return switcher.get(svm_type, lambda: "Error {} is not an option! Choose from: \n {}.".format(svm_type,
+                                                                                                  switcher.keys()))()

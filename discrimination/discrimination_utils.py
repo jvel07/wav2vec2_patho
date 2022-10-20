@@ -1,4 +1,18 @@
+import csv
+import glob
+import os
+import sys
+
 import numpy as np
+from sklearn import preprocessing
+from sklearn.decomposition import PCA, TruncatedSVD
+from sklearn.metrics import recall_score, roc_auc_score
+from sklearn.utils import shuffle
+from imblearn.under_sampling import RandomUnderSampler
+import pandas as pd
+
+from discrimination.svm_utils import train_svm
+
 
 # write results to csv
 def results_to_csv(file_name, list_columns, list_values):
@@ -13,6 +27,25 @@ def results_to_csv(file_name, list_columns, list_values):
             file_writer = csv.writer(csv_file)
             file_writer.writerow(list_values)
 
+
+# calculating auc score for each class (multiclass problems)
+def roc_auc_score_multiclass(actual_class, pred_class, average="macro"):
+    # creating a set of all the unique classes using the actual class list
+    unique_class = set(actual_class)
+    roc_auc_dict = {}
+    for per_class in unique_class:
+        # creating a list of all the classes except the current class
+        other_class = [x for x in unique_class if x != per_class]
+
+        # marking the current class as 1 and all other classes as 0
+        new_actual_class = [0 if x in other_class else 1 for x in actual_class]
+        new_pred_class = [0 if x in other_class else 1 for x in pred_class]
+
+        # using the sklearn metrics method to calculate the roc_auc_score
+        roc_auc = roc_auc_score(new_actual_class, new_pred_class, average=average)
+        roc_auc_dict[per_class] = roc_auc
+
+    return roc_auc_dict
 
 # Pooling types
 def global_max_pooling(data):
@@ -86,8 +119,25 @@ def load_data(task, list_datasets, list_labels, emb_type):
            dict_data['y_test']
 
 
+def load_data_demencia(config):
+    model_used = config['pretrained_model_details']['checkpoint_path'].split('/')[-2]
+    path_embs = os.path.join(config['paths']['out_embeddings'], model_used, config['discrimination']['emb_type'])
+    label_file = config['paths']['to_labels']  # path to the labels of the dataset
+
+    list_file_embs = glob.glob('{}*.npy'.format(path_embs))
+    list_arr_embs = []
+    for file in list_file_embs:
+        utterance_name = os.path.basename(file).split('.')[0]
+        list_arr_embs.append(np.load(file))
+        # Load labels
+    df = pd.DataFrame(list_arr_embs)
+    df['labels'] = pd.read_csv(label_file, header=None)
+    print("Data loaded!")
+    return df
+
+
 # Train and test function
-def train_test(task, list_labels, list_datasets, emb_type, std=True, resample=False, pca=False, svd=False,
+def train_test_pooling(task, list_labels, list_datasets, emb_type, std=True, resample=False, pca=False, svd=False,
                save_res=True, svm_type='linear', pooling_type='mean'):
     # Load data
     x_train, x_dev, x_test, y_train, y_dev, y_test = load_data(task=task, list_datasets=list_datasets,
@@ -139,6 +189,102 @@ def train_test(task, list_labels, list_datasets, emb_type, std=True, resample=Fa
             svd_com = 442
         else:
             svd_com = 342
+        print("Reducing dimensions with SVD...")
+        svd_er = TruncatedSVD(n_components=svd_com, n_iter=5, random_state=42)
+        x_train = svd_er.fit_transform(x_train)
+        x_dev = svd_er.transform(x_dev)
+        # On train+dev
+        x_combined = svd_er.fit_transform(x_combined)
+        x_test = svd_er.transform(x_test)
+        print("Shape 'x_train' after SVD:", x_train.shape)
+        print("Shape 'x_combined' after SVD:", x_combined.shape)
+
+    # undersampling x_train
+    if resample:
+        print("Undersampling...")
+        rus = RandomUnderSampler(random_state=42)
+        x_train, y_train = rus.fit_resample(x_train, y_train)
+        x_combined, y_combined = rus.fit_resample(x_combined, y_combined)
+        # Shuffling samples
+        x_train, y_train = shuffle(x_train, y_train, random_state=42)
+        print("Shape 'x_train' after resampling:", x_train.shape)
+        print("Shape 'x_combined' after resampling:", x_combined.shape)
+
+    # train on train set and evaluate on dev
+    uar_scores = []
+    list_c = [1e-5, 1e-4, 1e-3, 1e-2, 0.1, 1]
+    print("Using {} SVM... \nEvaluation scores: ".format(svm_type))
+    for c in list_c:
+        dev_post = train_svm(svm_type=svm_type, X=x_train, y=y_train, X_eval=x_dev, C=c)
+        pred = np.argmax(dev_post, axis=1)
+        uar = recall_score(y_dev, pred, average='macro')
+        uar_scores.append(uar)
+        print(c, "-->", uar)
+
+    # Grabbing best C value
+    best_c = list_c[np.argmax(uar_scores)]
+    print("Best C value was:", best_c)
+
+    # validate with best C on test using train+dev
+    post_test = train_svm(svm_type=svm_type, X=x_combined, y=y_combined, X_eval=x_test, C=best_c)
+    np.savetxt('data/{3}/posteriors/{2}_embeddings_post_test_{0}_{1}.txt'.format(pooling_type, best_c, emb_type, task),
+               post_test)
+    print("Test posteriors saved...")
+    pred_test = np.argmax(post_test, axis=1)
+    uar_test = recall_score(y_test, pred_test, average='macro')
+    print("Test score with best C={} -->".format(best_c), uar_test)
+    if save_res:
+        results_to_csv(file_name='data/{0}/results_wav2vec2.csv'.format(task),
+                       list_columns=['Embedding', 'best C', 'PCA', 'UND_SAMPLE', 'POOLING', 'std', 'UAR'],
+                       list_values=[emb_type, best_c, pca_comp, resample, pooling_type, std, uar_test])
+
+
+def train_test(task, list_labels, list_datasets, emb_type, std=True, resample=False, pca=False, svd=False,
+               save_res=True, svm_type='linear'):
+    pooling_type = 'mean'
+    # Load data
+    x_train, x_dev, x_test, y_train, y_dev, y_test = load_data(task=task, list_datasets=list_datasets,
+                                                               emb_type=emb_type, list_labels=list_labels)
+
+    # # Binarizing labels
+    # if binarize_lbl:
+    #     y_train[y_train == 2] = 0
+    #     y_dev[y_dev == 2] = 0
+    #     y_test[y_test == 2] = 0
+    #     print("Data binarized...")
+
+    # combine train+dev
+    x_combined = np.concatenate((x_train, x_dev))
+    y_combined = np.concatenate((y_train, y_dev))
+    print("train+dev combined:", x_combined.shape)
+
+    # Standardization
+    if std:
+        print("Standardizing...")
+        std_scaler = preprocessing.RobustScaler()
+        x_train = std_scaler.fit_transform(x_train)
+        x_dev = std_scaler.transform(x_dev)
+        x_combined = std_scaler.fit_transform(x_combined)
+        x_test = std_scaler.transform(x_test)
+
+    # PCA
+    pca_comp = 'None'
+    if pca and not svd:
+        pca_comp = 0.95
+        print("Reducing dimesions with PCA. Keeping {0} variance...".format(pca_comp))
+        #         pca_er = KernelPCA(n_components=512, n_jobs=16)
+        pca_er = PCA(n_components=pca_comp)
+        x_train = pca_er.fit_transform(x_train)
+        x_dev = pca_er.transform(x_dev)
+        # Fit PCA on train+dev
+        x_combined = pca_er.fit_transform(x_combined)
+        x_test = pca_er.transform(x_test)
+        print("Shape 'x_train' after PCA:", x_train.shape)
+        print("Shape 'x_combined' after PCA:", x_combined.shape)
+
+    # SVD
+    svd_com = 'None'
+    if svd and not pca:
         print("Reducing dimensions with SVD...")
         svd_er = TruncatedSVD(n_components=svd_com, n_iter=5, random_state=42)
         x_train = svd_er.fit_transform(x_train)
