@@ -11,7 +11,7 @@ from common import utils
 
 
 # Loading configuration
-config = utils.load_config('recipes/config_demencia16k-225B.yml')
+config = utils.load_config('config/config_demencia16k-225B.yml')
 model_name = config['pretrained_model_details']['checkpoint_path']
 
 # Loading feature extractor and model
@@ -46,5 +46,5 @@ train_dataset = train_dataset.map(utils.map_to_array)
 # EXTRACT FEATURES
 # extract_embeddings(dataset_list=[train_dataset], feature_extractor=feature_extractor, model=model, chunk_size=30)
 # extract_embeddings_original(dataset_list=[train_dataset], feature_extractor=feature_extractor, model=model)
-extract_embeddings_and_save(dataset_list=[train_dataset], feature_extractor=feature_extractor, model=model, chunk_size=30)
+extract_embeddings_and_save(dataset_list=[train_dataset], feature_extractor=feature_extractor, model=model, chunk_size=30, config=config)
 # extract_embeddings_gabor(dataset_list=[train_dataset], feature_extractor=feature_extractor, model=model, chunk_size=30)

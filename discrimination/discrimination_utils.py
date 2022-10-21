@@ -121,19 +121,21 @@ def load_data(task, list_datasets, list_labels, emb_type):
 
 def load_data_demencia(config):
     model_used = config['pretrained_model_details']['checkpoint_path'].split('/')[-2]
-    path_embs = os.path.join(config['paths']['out_embeddings'], model_used, config['discrimination']['emb_type'])
+    path_embs = os.path.join(config['paths']['out_embeddings'], model_used, config['discrimination']['emb_type']+'/')
     label_file = config['paths']['to_labels']  # path to the labels of the dataset
 
     list_file_embs = glob.glob('{}*.npy'.format(path_embs))
+    print(path_embs)
+    print("{} files found".format(len(list_file_embs)))
     list_arr_embs = []
     for file in list_file_embs:
         utterance_name = os.path.basename(file).split('.')[0]
         list_arr_embs.append(np.load(file))
         # Load labels
-    df = pd.DataFrame(list_arr_embs)
-    df['labels'] = pd.read_csv(label_file, header=None)
+    data = pd.DataFrame(list_arr_embs)
+    labels = pd.read_csv(label_file, header=None)
     print("Data loaded!")
-    return df
+    return data.values, labels.values
 
 
 # Train and test function
@@ -333,3 +335,4 @@ def train_test(task, list_labels, list_datasets, emb_type, std=True, resample=Fa
         results_to_csv(file_name='data/{0}/results_wav2vec2.csv'.format(task),
                        list_columns=['Embedding', 'best C', 'PCA', 'UND_SAMPLE', 'POOLING', 'std', 'UAR'],
                        list_values=[emb_type, best_c, pca_comp, resample, pooling_type, std, uar_test])
+

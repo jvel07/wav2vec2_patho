@@ -6,16 +6,13 @@ from discrimination.discrimination_utils import load_data_demencia, results_to_c
 from discrimination.svm_utils import train_svm
 
 config = utils.load_config('config/config_demencia16k-225B.yml')  # loading configuration
-data_frame = load_data_demencia(config=config)  # loading data
+x_train, y_train = load_data_demencia(config=config)  # loading data
 # out_results =
 
 # train
-x_train = data_frame.iloc[:, 0:512].values
-y_train = data_frame.labels.values
-list_c = [1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 0.1, 1]
+list_c = [1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 0.1]
 for c in list_c:
-    array_preds, array_trues, array_probs = train_svm(svm_type='linear-loocv', C=c, X=x_train,
-                                                      y=y_train)
+    array_preds, array_trues, array_probs = train_svm(svm_type='linear-loocv', C=c, X=x_train, y=np.ravel(y_train))
 
     acc = accuracy_score(array_trues, array_preds)
     auc = roc_auc_score(array_trues, array_probs, multi_class='ovo', labels=np.unique(y_train))

@@ -1,7 +1,14 @@
 import numpy as np
 import sklearn as sk
-from sklearn import svm
+from sklearn import svm, preprocessing
 from sklearn.model_selection import LeaveOneOut
+
+
+def standardize_data_jo(x_train, x_test):
+    std_scaler = preprocessing.RobustScaler()
+    x_train = std_scaler.fit_transform(x_train)
+    x_test = std_scaler.transform(x_test)
+    return x_train, x_test
 
 
 def train_linearsvm_cpu(X, y, X_eval, c):
@@ -39,6 +46,7 @@ def train_loocv_svm(x, y, c):
     for train_index, test_index in loo.split(X=x):
         x_train, x_test = x[train_index], x[test_index]
         y_train, y_test = y[train_index], y[test_index]
+        x_train, x_test = standardize_data_jo(x_train, x_test)
         svc.fit(x_train, y_train)
 
         pred = svc.predict(x_test)
