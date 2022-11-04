@@ -40,7 +40,7 @@ def train():
     num_labels = len(label_list)
 
     # Configurations
-    lang = 'hungarian'
+    lang = 'english'
     model_name_or_path = "jonatasgrosman/wav2vec2-large-xlsr-53-{}".format(lang)
     pooling_mode = "mean"
 

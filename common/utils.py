@@ -9,6 +9,7 @@ import soundfile as sf
 from sklearn.model_selection import train_test_split
 from transformers import EvalPrediction
 from yaml import SafeLoader
+from tqdm import tqdm
 
 
 def load_config(path_yaml):
@@ -125,6 +126,38 @@ def crate_csv_bea_from_scp(scp_file, out_path, train_split_data):
         print("Train and test data saved to {}".format(out_path))
 
 
+def create_csv_bea_base(corpora_path, out_file):
+    """Function to create csv file for the BEA Corpus with labels of the form:
+    'file_name', 'text'
+
+    :param out_file: string, name of the output file preceded with a desired parent directory. E.g.: a/path/train_set
+    :param corpora_path: String, path to the wavs and their corresponding transcriptions.
+    :return: List, final csv list.
+    """
+
+    if not os.path.exists(os.path.dirname(out_file)):
+        os.makedirs(os.path.dirname(out_file))
+
+    # reading directories
+    transcriptions = glob.glob('{}*.txt'.format(corpora_path))
+    transcriptions.sort()
+    wavs = glob.glob('{}*.wav'.format(corpora_path))
+    wavs.sort()
+
+    final_list = []
+    for wav_path, text_file in tqdm(zip(wavs, transcriptions), total=len(wavs)):
+        with open(text_file, 'r') as f:
+            sentence = f.read()
+            f.close()
+        final_list.append(wav_path + ',' + sentence)
+
+    df = pd.DataFrame([sub.split(",") for sub in final_list], columns=['file', 'sentence'])
+
+    df.to_csv('{}.csv'.format(out_file), sep=',', index=False)
+    print("Train and test.txt data saved to {}".format(out_file))
+
+
+
 """FUNCTIONS FOR AUDIO PREPROCESSING"""
 
 
@@ -153,6 +186,12 @@ class PreprocessFunction:
 
         result = self.processor(speech_list, sampling_rate=self.target_sampling_rate)
         result["labels"] = list(target_list)
+
+        return result
+
+    def preprocess_function_asr(self, samples):
+        speech_list = [speech_to_array(path) for path in samples["path"]]
+        result = self.processor(speech_list, sampling_rate=self.target_sampling_rate)
 
         return result
 
