@@ -20,7 +20,7 @@ def load_config(path_yaml):
 
 def save_data_iteratively(file_path, data):
     with open(file_path, 'w') as f:
-        np.savetxt(f, data.squeeze(), newline=" ", fmt="%s",)
+        np.savetxt(f, data.squeeze(), newline=" ", fmt="%s", )
         f.write('\n')
         f.close()
 
@@ -153,25 +153,22 @@ def create_csv_bea_base(corpora_path, out_file):
 
     df = pd.DataFrame([sub.split(",") for sub in final_list], columns=['file', 'sentence'])
 
-    df.to_csv('{}.csv'.format(out_file), sep=',', index=False)
-    print("Train and test.txt data saved to {}".format(out_file))
-
+    df.to_csv(out_file, sep=',', index=False)
+    print("Data saved to {}".format(out_file))
 
 
 """FUNCTIONS FOR AUDIO PREPROCESSING"""
+def label_to_id(label, label_list):
+    if len(label_list) > 0:
+        return label_list.index(label) if label in label_list else -1
+
+    return label
 
 
 def speech_to_array(path):
     speech, _ = sf.read(path)
     #     batch["speech"] = speech
     return speech
-
-
-def label_to_id(label, label_list):
-    if len(label_list) > 0:
-        return label_list.index(label) if label in label_list else -1
-
-    return label
 
 
 class PreprocessFunction:
@@ -189,9 +186,17 @@ class PreprocessFunction:
 
         return result
 
+
+class PreprocessFunctionASR:
+    def __init__(self, processor, target_sampling_rate):
+        self.processor = processor
+        self.target_sampling_rate = target_sampling_rate
+
     def preprocess_function_asr(self, samples):
-        speech_list = [speech_to_array(path) for path in samples["path"]]
+        speech_list = [speech_to_array(path) for path in samples["file"]]
         result = self.processor(speech_list, sampling_rate=self.target_sampling_rate)
+        with self.processor.as_target_processor():
+            samples["labels"] = self.processor(samples["sentence"]).input_ids
 
         return result
 
@@ -208,6 +213,12 @@ def compute_metrics(p: EvalPrediction, is_regression=False):
 
 
 def map_to_array(batch):
-    speech, _ = sf.read(batch["path"])
+    speech, _ = sf.read(batch["file"])
     batch["speech"] = speech
     return batch
+
+
+
+###
+
+

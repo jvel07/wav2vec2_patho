@@ -79,65 +79,65 @@ def train():
     )
     print("Validation dataset generated successfully...\n")
 
-    # Setting-up the trainer
-    data_collator = utils_fine_tune.DataCollatorCTCWithPadding(processor=processor, padding=True)
-
-    # Define evaluation metrics
-    is_regression = False
-
-    # Load pre-trained model to fine-tune
-    model = Wav2Vec2ForSpeechClassification.from_pretrained(
-        model_name_or_path,
-        config=config,
-    )
-
-    # Freeze CNN blocks
-    model.freeze_feature_extractor()
-
-    # Define trainers and train model
-
-    epochs_list = [1.0, 3.0, 5.0]
-    for num_train_epochs in epochs_list:
-        out_dir = '/srv/data/egasj/code/wav2vec2_patho_deep4/runs/{0}_{1}_{2}'.format(task, num_train_epochs, lang)
-        training_args = TrainingArguments(
-            output_dir=out_dir,
-            # output_dir="/content/gdrive/MyDrive/wav2vec2-xlsr-greek-speech-emotion-recognition"
-            per_device_train_batch_size=8,
-            per_device_eval_batch_size=4,
-            gradient_accumulation_steps=1,
-            evaluation_strategy="steps",
-            num_train_epochs=num_train_epochs,
-            fp16=False,
-            save_steps=10,
-            eval_steps=10,
-            logging_steps=10,
-            learning_rate=1e-3,
-            save_total_limit=2,
-            # use_ipex=True
-        )
-
-        # trainer = utils_fine_tune.CTCTrainer(
-        #     model=model,
-        #     data_collator=data_collator,
-        #     args=training_args,
-        #     compute_metrics=utils.compute_metrics,
-        #     train_dataset=train_dataset,
-        #     eval_dataset=eval_dataset,
-        #     tokenizer=processor.feature_extractor,
-        # )
-
-        trainer = Trainer(
-            model=model,
-            data_collator=data_collator,
-            args=training_args,
-            compute_metrics=utils.compute_metrics,
-            train_dataset=train_dataset,
-            eval_dataset=eval_dataset,
-            tokenizer=processor.feature_extractor,
-        )
-
-        trainer.train()
-        trainer.save_model(out_dir)
+    # # Setting-up the trainer
+    # data_collator = utils_fine_tune.DataCollatorCTCWithPadding(processor=processor, padding=True)
+    #
+    # # Define evaluation metrics
+    # is_regression = False
+    #
+    # # Load pre-trained model to fine-tune
+    # model = Wav2Vec2ForSpeechClassification.from_pretrained(
+    #     model_name_or_path,
+    #     config=config,
+    # )
+    #
+    # # Freeze CNN blocks
+    # model.freeze_feature_extractor()
+    #
+    # # Define trainers and train model
+    #
+    # epochs_list = [1.0, 3.0, 5.0]
+    # for num_train_epochs in epochs_list:
+    #     out_dir = '/srv/data/egasj/code/wav2vec2_patho_deep4/runs/{0}_{1}_{2}'.format(task, num_train_epochs, lang)
+    #     training_args = TrainingArguments(
+    #         output_dir=out_dir,
+    #         # output_dir="/content/gdrive/MyDrive/wav2vec2-xlsr-greek-speech-emotion-recognition"
+    #         per_device_train_batch_size=8,
+    #         per_device_eval_batch_size=4,
+    #         gradient_accumulation_steps=1,
+    #         evaluation_strategy="steps",
+    #         num_train_epochs=num_train_epochs,
+    #         fp16=False,
+    #         save_steps=10,
+    #         eval_steps=10,
+    #         logging_steps=10,
+    #         learning_rate=1e-3,
+    #         save_total_limit=2,
+    #         # use_ipex=True
+    #     )
+    #
+    #     # trainer = utils_fine_tune.CTCTrainer(
+    #     #     model=model,
+    #     #     data_collator=data_collator,
+    #     #     args=training_args,
+    #     #     compute_metrics=utils.compute_metrics,
+    #     #     train_dataset=train_dataset,
+    #     #     eval_dataset=eval_dataset,
+    #     #     tokenizer=processor.feature_extractor,
+    #     # )
+    #
+    #     trainer = Trainer(
+    #         model=model,
+    #         data_collator=data_collator,
+    #         args=training_args,
+    #         compute_metrics=utils.compute_metrics,
+    #         train_dataset=train_dataset,
+    #         eval_dataset=eval_dataset,
+    #         tokenizer=processor.feature_extractor,
+    #     )
+    #
+    #     trainer.train()
+    #     trainer.save_model(out_dir)
 
 
 if __name__ == '__main__':
