@@ -3,15 +3,15 @@ import os
 import re
 import numpy as np
 
-from datasets import load_dataset, DownloadMode
+from datasets import load_dataset, DownloadMode, load_metric
 from transformers import AutoConfig, Wav2Vec2Processor, TrainingArguments, Trainer, Wav2Vec2CTCTokenizer, \
-    Wav2Vec2FeatureExtractor, Wav2Vec2Processor
+    Wav2Vec2FeatureExtractor, Wav2Vec2Processor, Wav2Vec2ForCTC
 
 # in-house functions
-from common import utils, utils_fine_tune, crate_csv_bea_from_scp, create_csv_bea_base
+from common import utils, utils_fine_tune_asr, crate_csv_bea_from_scp, create_csv_bea_base
 from common.utils_fine_tune import Wav2Vec2ForSpeechClassification
 
-# os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 
 
 # os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb=860'
@@ -105,10 +105,10 @@ feature_extractor = Wav2Vec2FeatureExtractor(feature_size=1, sampling_rate=16000
 # feature extractor and tokenizer wrapped into a single Wav2Vec2Processor class
 processor = Wav2Vec2Processor(feature_extractor=feature_extractor, tokenizer=tokenizer)
 
-number_of_training_samples = 10
+number_of_training_samples = 15000
 train_set = train_set.shuffle(seed=42).select(range(number_of_training_samples))
 
-number_of_val_samples = 3
+number_of_val_samples = 1200
 val_set = val_set.shuffle(seed=42).select(range(number_of_val_samples))
 
 # reads wavs, calculates input_values, adds labels
@@ -118,26 +118,67 @@ train_set = train_set.map(
     pp.preprocess_function_asr,
     batch_size=128,
     batched=True,
-    num_proc=16
+    num_proc=4
 )
 val_set = val_set.map(
     pp.preprocess_function_asr,
     batch_size=128,
     batched=True,
-    num_proc=16
+    num_proc=4
 )
 
 # Checking a random sample
 rand_int = np.random.randint(0, len(train_set) - 1)
 print("Target text:", train_set[rand_int]["sentence"])
-print("Input array shape:", len(train_set[rand_int]["audio"]))
+print("Input array shape:", len(train_set[rand_int]["input_values"]))
 print("File:", train_set[rand_int]["file"])
 
-### DATA PREPROCESSING
+# # Setting-up the trainer
+data_collator = utils_fine_tune_asr.DataCollatorCTCWithPadding(processor=processor, padding=True)
+wer_metric = load_metric("wer")
 
+model = Wav2Vec2ForCTC.from_pretrained(
+    "facebook/wav2vec2-large-xlsr-53",
+    attention_dropout=0.1,
+    hidden_dropout=0.1,
+    feat_proj_dropout=0.0,
+    mask_time_prob=0.05,
+    layerdrop=0.1,
+    ctc_loss_reduction="mean",
+    pad_token_id=processor.tokenizer.pad_token_id,
+    vocab_size=len(processor.tokenizer)
+)
 
-# processor = Wav2Vec2Processor.from_pretrained(model_name_or_path)
-# target_sampling_rate = processor.feature_extractor.sampling_rate
-# print(f"The target sampling rate: {target_sampling_rate}")
-#
-# pp = utils.PreprocessFunctionASR(processor, target_sampling_rate=16000)
+model.freeze_feature_extractor()
+model.gradient_checkpointing_enable()
+
+training_args = TrainingArguments(
+  # output_dir="/content/gdrive/MyDrive/wav2vec2-large-xlsr-turkish-demo",
+  output_dir="./wav2vec2-large-xlsr-beaBase15k",
+  group_by_length=True,
+  per_device_train_batch_size=4,
+  gradient_accumulation_steps=2,
+  evaluation_strategy="steps",
+  num_train_epochs=1,
+  fp16=True,
+  save_steps=100,
+  eval_steps=100,
+  logging_steps=10,
+  learning_rate=3e-4,
+  warmup_steps=500,
+  save_total_limit=2,
+)
+
+mm = utils.ComputeMetricsASR(processor, wer_metric)
+
+trainer = Trainer(
+    model=model,
+    data_collator=data_collator,
+    args=training_args,
+    compute_metrics=mm.compute_metrics_asr,
+    train_dataset=train_set,
+    eval_dataset=val_set,
+    tokenizer=processor.feature_extractor,
+)
+
+trainer.train()

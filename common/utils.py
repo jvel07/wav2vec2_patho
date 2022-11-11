@@ -196,9 +196,19 @@ class PreprocessFunctionASR:
         speech_list = [speech_to_array(path) for path in samples["file"]]
         result = self.processor(speech_list, sampling_rate=self.target_sampling_rate)
         with self.processor.as_target_processor():
-            samples["labels"] = self.processor(samples["sentence"]).input_ids
+            result["labels"] = self.processor(samples["sentence"]).input_ids
 
         return result
+
+    def prepare_dataset(self, batch):
+        speech_list = [speech_to_array(path) for path in batch["file"]]
+
+        # batched output is "un-batched"
+        batch["input_values"] = self.processor(speech_list, sampling_rate=self.target_sampling_rate).input_values[0]
+
+        with self.processor.as_target_processor():
+            batch["labels"] = self.processor(batch["sentence"]).input_ids
+        return batch
 
 
 def compute_metrics(p: EvalPrediction, is_regression=False):
@@ -211,6 +221,25 @@ def compute_metrics(p: EvalPrediction, is_regression=False):
         return {"accuracy": (preds == p.label_ids).astype(np.float32).mean().item()}
         # return {"uar": recall_score(p.label_ids, preds, labels=[1, 0], average='macro')}
 
+
+class ComputeMetricsASR:
+    def __init__(self, processor, wer_metric):
+        self.processor = processor
+        self.wer_metric = wer_metric
+
+    def compute_metrics_asr(self, pred):
+        pred_logits = pred.predictions
+        pred_ids = np.argmax(pred_logits, axis=-1)
+
+        pred.label_ids[pred.label_ids == -100] = self.processor.tokenizer.pad_token_id
+
+        pred_str = self.processor.batch_decode(pred_ids)
+        # we do not want to group tokens when computing the metrics
+        label_str = self.processor.batch_decode(pred.label_ids, group_tokens=False)
+
+        wer = self.wer_metric.compute(predictions=pred_str, references=label_str)
+
+        return {"wer": wer}
 
 def map_to_array(batch):
     speech, _ = sf.read(batch["file"])
