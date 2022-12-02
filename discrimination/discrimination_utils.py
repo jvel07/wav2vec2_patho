@@ -10,6 +10,7 @@ from sklearn.metrics import recall_score, roc_auc_score
 from sklearn.utils import shuffle
 # from imblearn.under_sampling import RandomUnderSampler
 import pandas as pd
+from tqdm import tqdm
 
 from discrimination.svm_utils import train_svm
 
@@ -131,7 +132,7 @@ def load_data(config):
     print(path_embs)
     print("{} files found".format(len(list_file_embs)))
     list_arr_embs = []
-    for file in list_file_embs:
+    for file in tqdm(list_file_embs, total=len(list_file_embs)):
         utterance_name = os.path.basename(file).split('.')[0]
         list_arr_embs.append(np.load(file))
     # Load labels

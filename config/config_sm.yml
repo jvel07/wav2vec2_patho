@@ -1,19 +1,19 @@
 task: '10_narrative_recall'
-hf_cache_dir: '/srv/data/egasj/hf_cache/'
-#hf_cache_dir: '/home/user/Documents/hf_cache/'
+#hf_cache_dir: '/srv/data/egasj/hf_cache/'
+hf_cache_dir: '/home/user/Documents/hf_cache/'
 pretrained_model_details:
-  checkpoint_path: '/srv/data/egasj/code/wav2vec2_patho/wav2vec2-large-xlsr-beaBase-20percent/checkpoint-51800'
+#  checkpoint_path: '/srv/data/egasj/code/wav2vec2_patho/wav2vec2-large-xlsr-beaBase-20percent/checkpoint-51800'
 #  checkpoint_path: '/home/user/Documents/data/bea16k_hungarian/bea16k_3.0_hungarian/checkpoint-3390'
-#  checkpoint_path: '/home/user/Documents/data/bea16k_hungarian/bea16k_5.0_hungarian/checkpoint-5650'
+  checkpoint_path: '/home/user/Documents/data/bea16k_hungarian/bea16k_5.0_hungarian/checkpoint-5650'
 #  checkpoint_path: 'jonatasgrosman/wav2vec2-large-xlsr-53-hungarian'
 paths:
   to_labels: 'data/10_narrative_recall/labels.csv'
   to_save_metadata: 'data/10_narrative_recall/'
-  audio_path: '/srv/data/egasj/corpora/SM/10_narrative_recall/'
-#  audio_path: '/home/user/Documents/corpora/wav16k_selected225-B/'
+#  audio_path: '/srv/data/egasj/corpora/SM/10_narrative_recall/'
+  audio_path: '/home/user/Documents/corpora/SM/10_narrative_recall/'
   out_embeddings: 'data/10_narrative_recall/embeddings/'
 sampling_rate: 16000
 # This is read from ../sclerosis_multiple.py
 discrimination:
-  emb_type: 'hiddens'
+  emb_type: 'convs'
 shuffle_data: True

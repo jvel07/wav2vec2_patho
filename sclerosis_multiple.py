@@ -13,6 +13,7 @@ x_train, y_train = df.iloc[:, :-1].values, df.label.values  # loading data
 
 # train
 # print("Checkpoint utilized:", config['pretrained_model_details']['checkpoint_path'])
+print("Using", config['discrimination']['emb_type'])
 list_c = [1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 0.1]
 for c in list_c:
     array_preds, array_trues, array_probs = train_svm(svm_type='linear-loocv', C=c, X=x_train, y=np.ravel(y_train))
