@@ -11,31 +11,35 @@ from common import utils
 
 
 # Loading configuration
-config = utils.load_config('config/config_demencia16k-225B.yml')
+config = utils.load_config('config/config_sm.yml')
 model_name = config['pretrained_model_details']['checkpoint_path']
+task = config['task']  # name of the dataset
+audio_path = config['paths']['audio_path']  # path to the audio files of the task
+label_file = config['paths']['to_labels']  # path to the labels of the dataset
+save_path = config['paths']['to_save_metadata']  # path to save the csv file containing info of the dataset (metadata)
+
+# Generating labels (comment this if already generated)
+utils.create_csv_sm(in_path=audio_path, out_file=label_file)
+
+# loading data
+data = pd.read_csv(label_file)  # reading labels
+# list_wavs = glob.glob('{}*.wav'.format(audio_path))  # getting audio paths
+# list_wavs.sort()  # sorting to match labels order
+# list_wavs.append(list_wavs[2])  # temp => one utterance is missing
+# data['file_path'] = list_wavs  # getting the paths into the dataframe
+os.makedirs(save_path, exist_ok=True)  # creating dir for the csv
+data.to_csv(f"{save_path}/metadata.csv", sep=",", encoding="utf-8", index=False)  # saving to csv
+
 
 # Loading feature extractor and model
 feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(model_name)
 # feature_extractor = Wav2Vec2Processor.from_pretrained(model_name)  # use this if the model has Wav2Vec2CTCTokenizer
 model = Wav2Vec2Model.from_pretrained(model_name)
 
-# loading data
-task = config['task']  # name of the dataset
-audio_path = config['paths']['audio_path']  # path to the audio files of the task
-label_file = config['paths']['to_labels']  # path to the labels of the dataset
-save_path = config['paths']['to_save_csv']  # path to save the csv file containing info of the dataset
-
-data = pd.read_csv(label_file, header=None, names=['label'])  # reading labels
-list_wavs = glob.glob('{}*.wav'.format(audio_path))  # getting audio paths
-list_wavs.sort()  # sorting to match labels order
-# list_wavs.append(list_wavs[2])  # temp => one utterance is missing
-data['path'] = list_wavs  # getting the paths into the dataframe
-os.makedirs(save_path, exist_ok=True)  # creating dir for the csv
-data.to_csv(f"{save_path}/labels.csv", sep=",", encoding="utf-8", index=False)  # saving to csv
 
 # Load data in HF 'datasets' class format
 data_files = {
-    "train": "data/{}/labels.csv".format(task)
+    "train": "data/{}/metadata.csv".format(task)
 }
 
 dataset = load_dataset("csv", data_files=data_files, delimiter=",", cache_dir=config['hf_cache_dir'],

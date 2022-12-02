@@ -11,8 +11,7 @@ from transformers import AutoConfig, Wav2Vec2Processor, TrainingArguments, Train
 from common import utils, utils_fine_tune_asr, crate_csv_bea_from_scp, create_csv_bea_base
 from common.utils_fine_tune import Wav2Vec2ForSpeechClassification
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
-
+# os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 # os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb=860'
 
@@ -105,11 +104,22 @@ feature_extractor = Wav2Vec2FeatureExtractor(feature_size=1, sampling_rate=16000
 # feature extractor and tokenizer wrapped into a single Wav2Vec2Processor class
 processor = Wav2Vec2Processor(feature_extractor=feature_extractor, tokenizer=tokenizer)
 
-number_of_training_samples = 15000
+# Combinations (total of 69176, 4344):
+# E.g.: 20% --> tr: ~13800; val: ~900 (rounded)
+use_percentage = 35
+len_orig_train = (len(train_set))
+number_of_training_samples = round((len_orig_train * use_percentage) / 100)
 train_set = train_set.shuffle(seed=42).select(range(number_of_training_samples))
 
-number_of_val_samples = 1200
+len_orig_val = (len(val_set))
+number_of_val_samples = round((len_orig_val * use_percentage) / 100)
 val_set = val_set.shuffle(seed=42).select(range(number_of_val_samples))
+
+print("Using {}% of the data:\n {}/{} training samples \n {}/{} validation samples.".format(use_percentage,
+                                                                                            number_of_training_samples,
+                                                                                            len_orig_train,
+                                                                                            number_of_val_samples,
+                                                                                            len_orig_val))
 
 # reads wavs, calculates input_values, adds labels
 pp = utils.PreprocessFunctionASR(processor, target_sampling_rate=16000)
@@ -153,20 +163,20 @@ model.freeze_feature_extractor()
 model.gradient_checkpointing_enable()
 
 training_args = TrainingArguments(
-  # output_dir="/content/gdrive/MyDrive/wav2vec2-large-xlsr-turkish-demo",
-  output_dir="./wav2vec2-large-xlsr-beaBase15k",
-  group_by_length=True,
-  per_device_train_batch_size=4,
-  gradient_accumulation_steps=2,
-  evaluation_strategy="steps",
-  num_train_epochs=1,
-  fp16=True,
-  save_steps=100,
-  eval_steps=100,
-  logging_steps=10,
-  learning_rate=3e-4,
-  warmup_steps=500,
-  save_total_limit=2,
+    # output_dir="/content/gdrive/MyDrive/wav2vec2-large-xlsr-turkish-demo",
+    output_dir="./wav2vec2-large-xlsr-beaBase-{}percent".format(use_percentage),
+    group_by_length=True,
+    per_device_train_batch_size=2,
+    gradient_accumulation_steps=2,
+    evaluation_strategy="steps",
+    num_train_epochs=5,
+    fp16=True,
+    save_steps=100,
+    eval_steps=100,
+    logging_steps=10,
+    learning_rate=3e-4,
+    warmup_steps=500,
+    save_total_limit=2,
 )
 
 mm = utils.ComputeMetricsASR(processor, wer_metric)

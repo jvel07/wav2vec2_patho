@@ -8,7 +8,7 @@ from sklearn import preprocessing
 from sklearn.decomposition import PCA, TruncatedSVD
 from sklearn.metrics import recall_score, roc_auc_score
 from sklearn.utils import shuffle
-from imblearn.under_sampling import RandomUnderSampler
+# from imblearn.under_sampling import RandomUnderSampler
 import pandas as pd
 
 from discrimination.svm_utils import train_svm
@@ -100,7 +100,7 @@ def encode_labels(_y, list_labels):
 
 
 # Load data
-def load_data(task, list_datasets, list_labels, emb_type):
+def load_data_old(task, list_datasets, list_labels, emb_type):
     dict_data = {}
     for item in list_datasets:
         # Set data directories
@@ -119,23 +119,30 @@ def load_data(task, list_datasets, list_labels, emb_type):
            dict_data['y_test']
 
 
-def load_data_demencia(config):
+def load_data(config):
     model_used = config['pretrained_model_details']['checkpoint_path'].split('/')[-2]
-    path_embs = os.path.join(config['paths']['out_embeddings'], model_used, config['discrimination']['emb_type']+'/')
+    path_embs = os.path.join(config['paths']['out_embeddings'], model_used + '/') #config['discrimination']['emb_type']+'/')
     label_file = config['paths']['to_labels']  # path to the labels of the dataset
+    emb_type = config['discrimination']['emb_type']  # type of embeddings to load
+    shuffle_data = config['shuffle_data']  # whether to shuffle the training data
 
-    list_file_embs = glob.glob('{}*.npy'.format(path_embs))
+    list_file_embs = glob.glob('{0}{1}*.npy'.format(path_embs, emb_type))
+    list_file_embs.sort()
     print(path_embs)
     print("{} files found".format(len(list_file_embs)))
     list_arr_embs = []
     for file in list_file_embs:
         utterance_name = os.path.basename(file).split('.')[0]
         list_arr_embs.append(np.load(file))
-        # Load labels
+    # Load labels
     data = pd.DataFrame(list_arr_embs)
-    labels = pd.read_csv(label_file, header=None)
+    df = pd.read_csv(label_file)
+    data['label'] = df.label.values
+    if shuffle_data:
+        data = data.sample(frac=1).reset_index(drop=True)
+
     print("Data loaded!")
-    return data.values, labels.values
+    return data
 
 
 # Train and test function

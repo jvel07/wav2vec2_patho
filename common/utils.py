@@ -157,6 +157,39 @@ def create_csv_bea_base(corpora_path, out_file):
     print("Data saved to {}".format(out_file))
 
 
+def create_csv_sm(in_path, out_file):
+    """Function to create csv file for the Sclerosis Multiple Corpus with labels of the form:
+    'file_name', 'label'
+
+    :param out_file: string, name of the output file preceded with a desired parent directory. E.g.: a/path/train_set
+    :param in_path: string, path to the dataset containing the utterances.
+    :return: List, final csv list.
+    """
+
+    if not os.path.exists(os.path.dirname(out_file)):
+        os.makedirs(os.path.dirname(out_file))
+
+    # reading directories
+    audio_list = glob.glob('{}/*.wav'.format(in_path))
+    audio_list.sort()
+
+    final_list = []
+    for wav_path in tqdm(audio_list, total=len(audio_list)):
+        file_name = os.path.basename(wav_path)
+        label = file_name[0]
+        if label == 'C':
+            label = 0
+        else:
+            label = 1
+        final_list.append(wav_path + ',' + str(label))
+
+    df = pd.DataFrame([sub.split(",") for sub in final_list], columns=['path', 'label'])
+
+    df.to_csv(out_file, sep=',', index=False)
+    print("Data saved to {}".format(out_file))
+
+
+
 """FUNCTIONS FOR AUDIO PREPROCESSING"""
 def label_to_id(label, label_list):
     if len(label_list) > 0:
@@ -242,7 +275,7 @@ class ComputeMetricsASR:
         return {"wer": wer}
 
 def map_to_array(batch):
-    speech, _ = sf.read(batch["file"])
+    speech, _ = sf.read(batch["path"])
     batch["speech"] = speech
     return batch
 
