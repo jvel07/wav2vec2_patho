@@ -2,6 +2,7 @@ import csv
 import glob
 import os
 import sys
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 
 import numpy as np
 from sklearn import preprocessing
@@ -123,9 +124,7 @@ def load_data_old(task, list_datasets, list_labels, emb_type):
 def load_data(config):
     model_used = config['pretrained_model_details']['checkpoint_path'].split('/')[-2]
     path_embs = os.path.join(config['paths']['out_embeddings'], model_used + '/') #config['discrimination']['emb_type']+'/')
-    label_file = config['paths']['to_labels']  # path to the labels of the dataset
     emb_type = config['discrimination']['emb_type']  # type of embeddings to load
-    shuffle_data = config['shuffle_data']  # whether to shuffle the training data
 
     list_file_embs = glob.glob('{0}{1}*.npy'.format(path_embs, emb_type))
     list_file_embs.sort()
@@ -135,15 +134,61 @@ def load_data(config):
     for file in tqdm(list_file_embs, total=len(list_file_embs)):
         utterance_name = os.path.basename(file).split('.')[0]
         list_arr_embs.append(np.load(file))
-    # Load labels
+    # To dataframe
     data = pd.DataFrame(list_arr_embs)
-    df = pd.read_csv(label_file)
-    data['label'] = df.label.values
-    if shuffle_data:
-        data = data.sample(frac=1).reset_index(drop=True)
-
     print("Data loaded!")
+
     return data
+
+
+class LoadMulti:
+    def __init__(self):
+
+        # load a file and return the contents
+        def load_file(filepath):
+            # open the file
+            with open(filepath, 'r') as handle:
+                # return the contents
+                handle.read()
+
+        # return the contents of many files
+        def load_files(filepaths):
+            # create a thread pool
+            with ThreadPoolExecutor(len(filepaths)) as exe:
+                # load files
+                futures = [exe.submit(load_file, name) for name in filepaths]
+                # collect data
+                data_list = [future.result() for future in futures]
+                # return data and file paths
+                return (data_list, filepaths)
+
+        # load all files in a directory into memory
+        def main(path='tmp'):
+            # prepare all the paths
+            paths = [os.path.join(path, filepath) for filepath in os.listdir(path)]
+            # determine chunksize
+            n_workers = 8
+            chunksize = round(len(paths) / n_workers)
+            # create the process pool
+            with ProcessPoolExecutor(n_workers) as executor:
+                futures = list()
+                # split the load operations into chunks
+                for i in range(0, len(paths), chunksize):
+                    # select a chunk of filenames
+                    filepaths = paths[i:(i + chunksize)]
+                    # submit the task
+                    future = executor.submit(load_files, filepaths)
+                    futures.append(future)
+                # process all results
+                for future in as_completed(futures):
+                    # open the file and load the data
+                    _, filepaths = future.result()
+                    for filepath in filepaths:
+                        # report progress
+                        print(f'.loaded {filepath}')
+            print('Done')
+
+
 
 
 # Train and test function

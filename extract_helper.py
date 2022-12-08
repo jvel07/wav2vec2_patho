@@ -123,7 +123,10 @@ def extract_embeddings_and_save(dataset_list, feature_extractor, model, chunk_si
         #                                      feature_size=1, sampling_rate=sampling_rate)
 
         # iterating utterances
+        if len(dataset) < 1:
+            os.sys
         for i in range(0, len(dataset)):
+            print("iteration started")
             list_current_utterance_convs = []
             list_current_utterance_hiddens = []
 
@@ -170,7 +173,7 @@ def extract_embeddings_and_save(dataset_list, feature_extractor, model, chunk_si
             current_utterance_hidden_pooled = np.squeeze(np.mean(current_utterance_hiddens, axis=1))
 
             # defining paths and saving
-            utterance_name = os.path.basename(dataset[i]['path']).split(".")[0]
+            utterance_name = os.path.basename(dataset[i]['file']).split(".")[0]
             path_embs = config['paths']['out_embeddings'] + model_used
             os.makedirs(path_embs, exist_ok=True)
             file_convs = "{0}/convs_wav2vec2_{1}".format(path_embs, utterance_name)

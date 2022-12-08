@@ -189,7 +189,6 @@ def create_csv_sm(in_path, out_file):
     print("Data saved to {}".format(out_file))
 
 
-
 """FUNCTIONS FOR AUDIO PREPROCESSING"""
 def label_to_id(label, label_list):
     if len(label_list) > 0:
@@ -275,7 +274,7 @@ class ComputeMetricsASR:
         return {"wer": wer}
 
 def map_to_array(batch):
-    speech, _ = sf.read(batch["path"])
+    speech, _ = sf.read(batch["file"])
     batch["speech"] = speech
     return batch
 
