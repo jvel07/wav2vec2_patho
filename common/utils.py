@@ -7,9 +7,13 @@ import numpy as np
 import pandas as pd
 import soundfile as sf
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler, Normalizer
 from transformers import EvalPrediction
 from yaml import SafeLoader
 from tqdm import tqdm
+import pickle as pk
+
+from discrimination.discrimination_utils import load_data
 
 
 def load_config(path_yaml):
@@ -278,6 +282,63 @@ def map_to_array(batch):
     batch["speech"] = speech
     return batch
 
+
+def choose_scaler(scaler_type):
+    switcher = {
+        'standard': lambda: StandardScaler(),
+        'minmax': lambda: MinMaxScaler(),
+        'robust': lambda: RobustScaler(),
+        'normalizer': lambda: Normalizer()
+    }
+    return switcher.get(scaler_type, lambda: "Error {} is not an option! Choose from: \n {}.".format(scaler_type,
+                                                                                                     switcher.keys()))()
+
+
+def fit_scaler(config_bea):
+    save_scaler = config_bea['data_scaling']['save_scaling_model']
+    out_dir = config_bea['data_scaling']['scaling_model_path']
+    emb_type = config_bea['discrimination']['emb_type']  # type of embeddings to load
+    scaler_type = config_bea['data_scaling']['scaler_type']
+
+    final_out_path = '{0}_{1}_{2}.pkl'.format(out_dir, str(scaler_type), emb_type)
+
+    os.makedirs(os.path.dirname(final_out_path), exist_ok=True)
+    if os.path.isfile(final_out_path):
+        while True:
+            reply = input("Seems like a scaler model was already trained:\n{}. \nIf you changed the size of the sets,"
+                          "then you may want to train the model again.\n"
+                          " Do you want to retrain the scaler model? Yes or [No]: ".format(final_out_path) or "no")
+            if reply.lower() not in ('yes', 'no'):
+                print("Please, enter either 'yes' or 'no'")
+                continue
+            else:
+                if reply.lower() == 'yes':
+                    bea_train_flat = load_data(config=config_bea)  # load bea embeddings
+                    scaler = choose_scaler(scaler_type)
+                    scaler.fit(bea_train_flat)
+                    print("{} scaler fitted...".format(scaler_type))
+
+                    if save_scaler:
+                        pk.dump(scaler, open(final_out_path, 'wb'))
+                        print("Scaler model saved to:", final_out_path)
+                    return scaler
+                else:
+                    print("You chose {}. Loading the existing scaler model...".format(reply))
+                    scaler = pk.load(open(final_out_path, 'rb'))
+                    return scaler
+                    # pass
+                # break
+    else:
+        bea_train_flat = load_data(config=config_bea)  # load bea embeddings
+        # train PCA
+        scaler = choose_scaler(scaler_type)
+        scaler.fit(bea_train_flat)
+        print("{} scaler fitted...".format(scaler_type))
+
+        if save_scaler:
+            pk.dump(scaler, open(final_out_path, 'wb'))
+            print("Scaler model saved to:", final_out_path)
+        return scaler
 
 
 ###

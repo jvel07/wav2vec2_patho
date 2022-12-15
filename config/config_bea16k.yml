@@ -15,9 +15,13 @@ paths:
 sampling_rate: 16000
 # This is read from ../sclerosis_multiple.py
 discrimination:
-  emb_type: 'convs'
+  emb_type: 'hiddens'
 shuffle_data: True
 dimension_reduction:
   n_components: 0.95
   save_pca: True
   pca_path: "data/bea-base-train-flat/dim_red/bea_train_flat_57k_pca" #.pkl
+data_scaling:
+  save_scaling_model: True
+  scaling_model_path: "data/bea-base-train-flat/dim_red/bea_train_flat_57k" #.pkl
+  scaler_type: "standard"

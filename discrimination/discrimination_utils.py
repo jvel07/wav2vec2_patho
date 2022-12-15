@@ -389,3 +389,12 @@ def train_test(task, list_labels, list_datasets, emb_type, std=True, resample=Fa
                        list_columns=['Embedding', 'best C', 'PCA', 'UND_SAMPLE', 'POOLING', 'std', 'UAR'],
                        list_values=[emb_type, best_c, pca_comp, resample, pooling_type, std, uar_test])
 
+
+# Preprocessing data
+# Scaling and standardization
+
+# class PreprocessData:
+#     def __init__(self, train_data):
+#         self.train_data = train_data
+#
+#     def

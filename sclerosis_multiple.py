@@ -1,6 +1,6 @@
 from sklearn.metrics import accuracy_score, roc_auc_score, f1_score, precision_score, recall_score
 
-from common import utils
+from common import utils, fit_scaler
 import numpy as np
 import pandas as pd
 from discrimination.discrimination_utils import load_data, results_to_csv, roc_auc_score_multiclass
@@ -8,7 +8,7 @@ from discrimination.svm_utils import train_svm
 from common.dimension_reduction import ReduceDims
 
 config = utils.load_config('config/config_sm.yml')  # loading configuration
-config_bea = utils.load_config('config/config_bea16k.yml')  # loading configuration
+config_bea = utils.load_config('config/config_bea16k.yml')  # loading configuration for bea dataset (PCA)
 shuffle_data = config['shuffle_data']  # whether to shuffle the training data
 label_file = config['paths']['to_labels']  # path to the labels of the dataset
 
@@ -21,7 +21,14 @@ if shuffle_data:
 
 x_train, y_train = data.iloc[:, :-1].values, data.label.values  # train and labels
 
-pca_flag = False
+# Standardizing data before reducing dimensions
+scale_data = False
+if scale_data:
+    scaler = fit_scaler(config_bea)
+    x_train = scaler.transform(x_train)
+    print("Train data standardized...")
+
+pca_flag = True
 if pca_flag:
     # APPLY PCA!
     # Train PCA model using embeddings got from bea-train-flat (57k files fo each emb type: convs and hiddens)
