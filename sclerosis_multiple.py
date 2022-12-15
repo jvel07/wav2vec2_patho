@@ -10,12 +10,13 @@ from discrimination.svm_utils import train_svm
 from common.dimension_reduction import ReduceDims
 
 config = utils.load_config('config/config_sm.yml')  # loading configuration
-config_bea = utils.load_config('config/config_bea16k.yml')  # loading configuration for bea dataset (PCA)
+config_bea = utils.load_config('config/config_bea16k.yml')  # loading configuration for bea dataset (PCA, std)
 shuffle_data = config['shuffle_data']  # whether to shuffle the training data
 label_file = config['paths']['to_labels']  # path to the labels of the dataset
-output_results = config['paths']['output_results']
+output_results = config['paths']['output_results']  # path to csv for saving the results
 
 data = load_data(config=config)  # loading data
+bea_train_flat = load_data(config=config_bea)  # load bea embeddings
 df_labels = pd.read_csv(label_file)  # loading labels
 data['label'] = df_labels.label.values  # adding labels to data
 # Shuffling data if needed
@@ -27,7 +28,8 @@ x_train, y_train = data.iloc[:, :-1].values, data.label.values  # train and labe
 # Standardizing data before reducing dimensions
 scaler_type = config_bea['data_scaling']['scaler_type']
 if scaler_type:
-    scaler = fit_scaler(config_bea)
+    scaler = fit_scaler(config_bea, bea_train_flat)
+    bea_train_flat = scaler.transform(bea_train_flat)
     x_train = scaler.transform(x_train)
     print("Train data standardized...")
 
@@ -38,7 +40,11 @@ if dim_reduction == 'PCA':
     # Train PCA model using embeddings got from bea-train-flat (57k files fo each emb type: convs and hiddens)
     # Transform the dataset using the fitted PCA model
     reduce_dims = ReduceDims(config_bea=config_bea)
-    pca = reduce_dims.fit_pca()  # train PCA
+    if not scaler_type:
+        scaler = fit_scaler(config_bea, bea_train_flat)
+        bea_train_flat = scaler.transform(bea_train_flat)
+
+    pca = reduce_dims.fit_pca(bea_train_flat)  # train PCA
     x_train = pca.transform(x_train)  # transform (reduce dimensionality)
     print("New shape:", x_train.shape)
     size_reduced = x_train.shape[1]
@@ -47,8 +53,7 @@ elif dim_reduction == 'autoencoder':
 else:
     pass
 
-# train
-# print("Checkpoint utilized:", config['pretrained_model_details']['checkpoint_path'])
+# Train SVM
 print("Using", config['discrimination']['emb_type'])
 list_c = [1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 0.1]
 df = pd.DataFrame(data, columns=['c', 'acc', 'f1', 'prec', 'recall', 'auc'])
@@ -69,7 +74,8 @@ for c in list_c:
     rec = recall_score(array_trues, array_preds)
     # data = {'c': c, 'acc': acc, 'f1': f1, 'prec': prec, 'recall': rec, 'auc': auc}
     data = {'c': c, 'acc': acc, 'f1': f1, 'prec': prec, 'recall': rec, 'auc': auc, 'Embedding': emb_type,
-            'Reduction technique': '{0}-{1}'.format(dim_reduction, str(size_reduced)), 'Model used': model_used, 'std': str(scaler_type)}
+            'Reduction technique': '{0}-{1}'.format(dim_reduction, str(size_reduced)), 'Model used': model_used,
+            'std': str(scaler_type)}
     df = df.append(data, ignore_index=True)
 
     print("with", c, "acc:", acc, " f1:", f1, " prec:", prec, " recall:", rec, 'AUC:', auc)#, 'auc-c0:', aucs[1],

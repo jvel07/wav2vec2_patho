@@ -17,6 +17,6 @@ paths:
 sampling_rate: 16000
 # This is read from ../sclerosis_multiple.py
 discrimination:
-#  emb_type: 'hiddens'
-  emb_type: 'convs'
+  emb_type: 'hiddens'
+#  emb_type: 'convs'
 shuffle_data: True

@@ -296,7 +296,7 @@ def choose_scaler(scaler_type):
                                                                                                      switcher.keys()))()
 
 
-def fit_scaler(config_bea):
+def fit_scaler(config_bea, bea_train_flat):
     save_scaler = config_bea['data_scaling']['save_scaling_model']
     out_dir = config_bea['data_scaling']['scaling_model_path']
     emb_type = config_bea['discrimination']['emb_type']  # type of embeddings to load
@@ -317,7 +317,7 @@ def fit_scaler(config_bea):
                 else:
                     if reply.lower() == 'yes':
                         print("Starting to train {} scaler...".format(scaler_type))
-                        bea_train_flat = load_data(config=config_bea)  # load bea embeddings
+                        # bea_train_flat = load_data(config=config_bea)  # load bea embeddings
                         scaler = choose_scaler(scaler_type)
                         scaler.fit(bea_train_flat)
                         print("{} scaler fitted...".format(scaler_type))
@@ -334,8 +334,8 @@ def fit_scaler(config_bea):
                     # break
         else:
             print("No trained scaler found, starting to train {} scaler...".format(scaler_type))
-            bea_train_flat = load_data(config=config_bea)  # load bea embeddings
-            # train PCA
+            # bea_train_flat = load_data(config=config_bea)  # load bea embeddings
+            # train Scaler
             scaler = choose_scaler(scaler_type)
             scaler.fit(bea_train_flat)
             print("{} scaler fitted...".format(scaler_type))

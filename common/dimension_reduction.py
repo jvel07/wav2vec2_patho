@@ -14,7 +14,7 @@ class ReduceDims:
     def __init__(self, config_bea):
         self.config_bea = config_bea
 
-    def fit_pca(self):
+    def fit_pca(self, bea_train_flat):
 
         # save_pca = kwargs.get('save_pca', None)
         # out_dir = kwargs.get('out_dir', None)
@@ -39,7 +39,6 @@ class ReduceDims:
                 else:
                     if reply.lower() == 'yes':
                         print("Starting to train PCA...")
-                        bea_train_flat = load_data(config=self.config_bea)  # load bea embeddings
                         pca = PCA(n_components=n_components)
                         pca.fit(bea_train_flat)
                         print("PCA fitted...")
@@ -56,7 +55,7 @@ class ReduceDims:
                     # break
         else:
             print("No trained PCA found; starting to train PCA...")
-            bea_train_flat = load_data(config=self.config_bea)  # load bea embeddings
+            # bea_train_flat = load_data(config=self.config_bea)  # load bea embeddings
             # train PCA
             pca = PCA(n_components=n_components)
             pca.fit(bea_train_flat)

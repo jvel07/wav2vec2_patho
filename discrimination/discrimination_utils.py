@@ -117,6 +117,8 @@ def load_data(config):
     print(path_embs)
     print("{} files found".format(len(list_file_embs)))
     list_arr_embs = []
+    if 'bea' in path_embs:
+        list_file_embs = list_file_embs[0:10240]
     for file in tqdm(list_file_embs, total=len(list_file_embs)):
         utterance_name = os.path.basename(file).split('.')[0]
         list_arr_embs.append(np.load(file))
