@@ -1,3 +1,5 @@
+import csv
+
 import yaml
 from sklearn.model_selection import train_test_split
 import glob
@@ -342,5 +344,19 @@ def fit_scaler(config_bea):
 
 
 ###
+
+# write results to csv
+def results_to_csv(file_name, list_columns, list_values):
+    if not os.path.isfile(file_name):
+        with open(file_name, mode='w') as csv_file:
+            file_writer = csv.writer(csv_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+            file_writer.writerow(list_columns)
+            file_writer.writerow(list_values)
+            print("File " + file_name + " created!")
+    else:
+        with open(file_name, 'a') as csv_file:
+            file_writer = csv.writer(csv_file)
+            file_writer.writerow(list_values)
+
 
 

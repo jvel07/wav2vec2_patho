@@ -16,20 +16,6 @@ from tqdm import tqdm
 from discrimination.svm_utils import train_svm
 
 
-# write results to csv
-def results_to_csv(file_name, list_columns, list_values):
-    if not os.path.isfile(file_name):
-        with open(file_name, mode='w') as csv_file:
-            file_writer = csv.writer(csv_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-            file_writer.writerow(list_columns)
-            file_writer.writerow(list_values)
-            print("File " + file_name + " created!")
-    else:
-        with open(file_name, 'a') as csv_file:
-            file_writer = csv.writer(csv_file)
-            file_writer.writerow(list_values)
-
-
 # calculating auc score for each class (multiclass problems)
 def roc_auc_score_multiclass(actual_class, pred_class, average="macro"):
     # creating a set of all the unique classes using the actual class list

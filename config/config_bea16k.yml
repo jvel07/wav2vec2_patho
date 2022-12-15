@@ -24,4 +24,4 @@ dimension_reduction:
 data_scaling:
   save_scaling_model: True
   scaling_model_path: "data/bea-base-train-flat/dim_red/bea_train_flat_57k" #.pkl
-  scaler_type: "standard"
+  scaler_type: "minmax"
