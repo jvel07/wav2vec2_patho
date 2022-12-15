@@ -307,14 +307,15 @@ def fit_scaler(config_bea):
     os.makedirs(os.path.dirname(final_out_path), exist_ok=True)
     if os.path.isfile(final_out_path):
         while True:
-            reply = input("Seems like a scaler model was already trained:\n{}. \nIf you changed the size of the sets,"
+            reply = input("Seems like a {0} scaler model was already trained:\n{1}. \nIf you changed the size of the sets, "
                           "then you may want to train the model again.\n"
-                          " Do you want to retrain the scaler model? Yes or [No]: ".format(final_out_path) or "no")
+                          " Do you want to retrain the scaler model? Yes or [No]: ".format(scaler_type, final_out_path) or "no")
             if reply.lower() not in ('yes', 'no'):
                 print("Please, enter either 'yes' or 'no'")
                 continue
             else:
                 if reply.lower() == 'yes':
+                    print("Starting to train {} scaler...".format(scaler_type))
                     bea_train_flat = load_data(config=config_bea)  # load bea embeddings
                     scaler = choose_scaler(scaler_type)
                     scaler.fit(bea_train_flat)
@@ -331,6 +332,7 @@ def fit_scaler(config_bea):
                     # pass
                 # break
     else:
+        print("No trained scaler found, starting to train {} scaler...".format(scaler_type))
         bea_train_flat = load_data(config=config_bea)  # load bea embeddings
         # train PCA
         scaler = choose_scaler(scaler_type)
