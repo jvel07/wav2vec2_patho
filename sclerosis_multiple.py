@@ -25,15 +25,14 @@ if shuffle_data:
 x_train, y_train = data.iloc[:, :-1].values, data.label.values  # train and labels
 
 # Standardizing data before reducing dimensions
-scale_data = True
-scaler_type = None
-if scale_data:
-    scaler_type = config_bea['data_scaling']['scaler_type']
+scaler_type = config_bea['data_scaling']['scaler_type']
+if scaler_type:
     scaler = fit_scaler(config_bea)
     x_train = scaler.transform(x_train)
     print("Train data standardized...")
 
-dim_reduction = 'None' # autoencoder
+dim_reduction = 'PCA'  # autoencoder
+size_reduced = 'None'  # new dimension size after reduction
 if dim_reduction == 'PCA':
     # APPLY PCA!
     # Train PCA model using embeddings got from bea-train-flat (57k files fo each emb type: convs and hiddens)
@@ -42,6 +41,7 @@ if dim_reduction == 'PCA':
     pca = reduce_dims.fit_pca()  # train PCA
     x_train = pca.transform(x_train)  # transform (reduce dimensionality)
     print("New shape:", x_train.shape)
+    size_reduced = x_train.shape[1]
 elif dim_reduction == 'autoencoder':
     print("Not implemented yet...")
 else:
@@ -67,9 +67,9 @@ for c in list_c:
     f1 = f1_score(array_trues, array_preds)
     prec = precision_score(array_trues, array_preds)
     rec = recall_score(array_trues, array_preds)
-    data = {'c': c, 'acc': acc, 'f1': f1, 'prec': prec, 'recall': rec, 'auc': auc}
+    # data = {'c': c, 'acc': acc, 'f1': f1, 'prec': prec, 'recall': rec, 'auc': auc}
     data = {'c': c, 'acc': acc, 'f1': f1, 'prec': prec, 'recall': rec, 'auc': auc, 'Embedding': emb_type,
-            'Reduction technique': dim_reduction, 'Model used': model_used, 'std': scaler_type}
+            'Reduction technique': '{0}-{1}'.format(dim_reduction, str(size_reduced)), 'Model used': model_used, 'std': str(scaler_type)}
     df = df.append(data, ignore_index=True)
 
     print("with", c, "acc:", acc, " f1:", f1, " prec:", prec, " recall:", rec, 'AUC:', auc)#, 'auc-c0:', aucs[1],

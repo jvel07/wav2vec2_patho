@@ -30,7 +30,7 @@ class ReduceDims:
         os.makedirs(os.path.dirname(final_out_path), exist_ok=True)
         if os.path.isfile(final_out_path):
             while True:
-                reply = input("Seems like the PCA model was already trained:\n{}. \nIf you changed the size of the sets,"
+                reply = input("Seems like the PCA model was already trained:\n{}. \nIf you changed the size of the sets, "
                               "or the value of the variance, then you may want to train the model again.\n"
                               " Do you want to retrain the PCA model? Yes or [No]: ".format(final_out_path) or "no")
                 if reply.lower() not in ('yes', 'no'):
@@ -38,6 +38,7 @@ class ReduceDims:
                     continue
                 else:
                     if reply.lower() == 'yes':
+                        print("Starting to train PCA...")
                         bea_train_flat = load_data(config=self.config_bea)  # load bea embeddings
                         pca = PCA(n_components=n_components)
                         pca.fit(bea_train_flat)
@@ -54,6 +55,7 @@ class ReduceDims:
                         # pass
                     # break
         else:
+            print("No trained PCA found; starting to train PCA...")
             bea_train_flat = load_data(config=self.config_bea)  # load bea embeddings
             # train PCA
             pca = PCA(n_components=n_components)
@@ -68,6 +70,35 @@ class ReduceDims:
     def transform_pca(self, pca_fitted):
         transformed_data = pca_fitted.transform(self.transform_data)
         print("Data transformed, final shape:", transformed_data.shape)
+
+    def get_var_ratio_pca(X):
+        pca = PCA(n_components=None)
+        pca.fit(X)
+        return pca.explained_variance_ratio_
+
+    def sel_pca_comp(self, var_ratio, goal_var: float) -> int:
+        # Set initial variance explained so far
+        total_variance = 0.0
+
+        # Set initial number of features
+        n_components = 0
+
+        # For the explained variance of each feature:
+        for explained_variance in var_ratio:
+
+            # Add the explained variance to the total
+            total_variance += explained_variance
+
+            # Add one to the number of components
+            n_components += 1
+
+            # If we reach our goal level of explained variance
+            if total_variance >= goal_var:
+                # End the loop
+                break
+
+        # Return the number of components
+        return n_components
 
 
 # Autoencoder
