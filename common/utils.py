@@ -301,9 +301,10 @@ def fit_scaler(config_bea, bea_train_flat):
     out_dir = config_bea['data_scaling']['scaling_model_path']
     emb_type = config_bea['discrimination']['emb_type']  # type of embeddings to load
     scaler_type = config_bea['data_scaling']['scaler_type']
+    size = config_bea['size_bea']
 
     if scaler_type is not None:
-        final_out_path = '{0}_{1}_{2}.pkl'.format(out_dir, str(scaler_type), emb_type)
+        final_out_path = '{0}_{1}_{2}_{3}k.pkl'.format(out_dir, str(scaler_type), emb_type, size)
 
         os.makedirs(os.path.dirname(final_out_path), exist_ok=True)
         if os.path.isfile(final_out_path):

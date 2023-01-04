@@ -1,15 +1,21 @@
 task: 'bea-base-train-flat'
-hf_cache_dir: '/srv/data/egasj/hf_cache/'
+size_bea: '7168' # take a subset from the total 57548 files
+#hf_cache_dir: '/srv/data/egasj/hf_cache/'
 #hf_cache_dir: '/home/user/Documents/hf_cache/'
+hf_cache_dir: '/media/jvel/data/hf_cache/'
 pretrained_model_details:
-  checkpoint_path: '/srv/data/egasj/code/wav2vec2_patho/wav2vec2-large-xlsr-beaBase-20percent/checkpoint-51800'
+#  checkpoint_path: '/srv/data/egasj/code/wav2vec2_patho/wav2vec2-large-xlsr-beaBase-20percent/checkpoint-51800'
+
+  checkpoint_path: '/media/jvel/data/wav2vec2 models/wav2vec2-large-xlsr-beaBase-20percent/checkpoint-51800'
+
 #  checkpoint_path: '/home/user/Documents/data/bea16k_hungarian/bea16k_3.0_hungarian/checkpoint-3390'
 #  checkpoint_path: '/home/user/Documents/data/bea16k_hungarian/bea16k_5.0_hungarian/checkpoint-5650'
 #  checkpoint_path: 'jonatasgrosman/wav2vec2-large-xlsr-53-hungarian'
 paths:
   to_labels: 'data/bea-base-train-flat/labels.csv'
   to_save_metadata: 'data/bea-base-train-flat/'
-  audio_path: '/srv/data/egasj/corpora/Bea_base/bea-base-train-flat/'
+  audio_path: '/media/jvel/data/audio/Bea_base/bea-base-train-flat/'
+#  audio_path: '/srv/data/egasj/corpora/Bea_base/bea-base-train-flat/'
 #  audio_path: '/home/user/Documents/corpora/BEA-base/bea-base-train-flat/'
   out_embeddings: 'data/bea-base-train-flat/embeddings/'
 sampling_rate: 16000
@@ -21,11 +27,12 @@ shuffle_data: True
 dimension_reduction:
   # best n_components = 193 (0.95); 302 (0.97) ==> hiddens;
   # best n_components = 79 (0.95); 118 (0.97) ==> convs;
-  n_components: 0.97
+  n_components: 0.95  # first 4 => 0.97
+  encoder_size: 471 # akin to n_components for the autoencoder
   save_pca: True
   pca_path: "data/bea-base-train-flat/dim_red/bea_train_flat_57k_pca" #.pkl
 data_scaling:
   save_scaling_model: True
-  scaling_model_path: "data/bea-base-train-flat/dim_red/bea_train_flat_57k" #.pkl
+  scaling_model_path: "data/bea-base-train-flat/dim_red/bea_train_flat" #.pkl
    # "minmax" "standard" "robust" "normalizer" null
   scaler_type: "standard"

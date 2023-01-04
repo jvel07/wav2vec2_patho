@@ -139,3 +139,15 @@ class Autoencoder(nn.Module):
         x = self.decode(x)
         return x
 
+
+def train(model, error, optimizer, n_epochs, x):
+    model.train()
+    for epoch in range(1, n_epochs + 1):
+        optimizer.zero_grad()
+        output = model(x)
+        loss = error(output, x)
+        loss.backward()
+        optimizer.step()
+
+        if epoch % int(0.1 * n_epochs) == 0:
+            print(f'epoch {epoch} \t Loss: {loss.item():.4g}')

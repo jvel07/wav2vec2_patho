@@ -1,13 +1,15 @@
 import os
 
+import torch
 from sklearn.metrics import accuracy_score, roc_auc_score, f1_score, precision_score, recall_score
+from torch import nn, optim
 
 from common import utils, fit_scaler, results_to_csv
 import numpy as np
 import pandas as pd
 from discrimination.discrimination_utils import load_data, roc_auc_score_multiclass
 from discrimination.svm_utils import train_svm
-from common.dimension_reduction import ReduceDims
+from common.dimension_reduction import ReduceDims, Autoencoder, train
 
 config = utils.load_config('config/config_sm.yml')  # loading configuration
 config_bea = utils.load_config('config/config_bea16k.yml')  # loading configuration for bea dataset (PCA, std)
@@ -33,23 +35,46 @@ if scaler_type:
     x_train = scaler.transform(x_train)
     print("Train data standardized...")
 
-dim_reduction = 'PCA'  # autoencoder
+dim_reduction = 'autoencoder'  # autoencoder
 size_reduced = 'None'  # new dimension size after reduction
 if dim_reduction == 'PCA':
     # APPLY PCA!
     # Train PCA model using embeddings got from bea-train-flat (57k files fo each emb type: convs and hiddens)
     # Transform the dataset using the fitted PCA model
     reduce_dims = ReduceDims(config_bea=config_bea)
-    if not scaler_type:
-        scaler = fit_scaler(config_bea, bea_train_flat)
-        bea_train_flat = scaler.transform(bea_train_flat)
+    # if not scaler_type
+    #     scaler = fit_scaler(config_bea, bea_train_flat)
+    #     bea_train_flat = scaler.transform(bea_train_flat)
 
     pca = reduce_dims.fit_pca(bea_train_flat)  # train PCA
     x_train = pca.transform(x_train)  # transform (reduce dimensionality)
     print("New shape:", x_train.shape)
     size_reduced = x_train.shape[1]
+
 elif dim_reduction == 'autoencoder':
-    print("Not implemented yet...")
+    print("\nReducing dimensions using Autoencoder. Initial shape: {}".format(x_train.shape))
+    device = ('cuda' if torch.cuda.is_available() else 'cpu')
+
+    enc_shape = config_bea['dimension_reduction']['encoder_size']
+    bea_train_flat = torch.from_numpy(bea_train_flat).float().to(device)
+    x_train = torch.from_numpy(x_train).float().to(device)
+    x_train = torch.from_numpy(x_train).float().to(device)
+    y_train = torch.from_numpy(y_train).float().to(device)
+    # defining the autoencoder and training
+    encoder = Autoencoder(in_shape=x_train.shape[1], enc_shape=enc_shape).double().to(device)
+    error = nn.MSELoss()
+    optimizer = optim.Adam(encoder.parameters())
+    train(encoder, error, optimizer, 100, x_train)
+
+    # reducing the dimensions
+    with torch.no_grad():
+        encoded = encoder.encode(x_train)
+        decoded = encoder.decode(encoded)
+        mse = error(decoded, x_train).item()
+        x_train = encoded.cpu().detach().numpy()
+        dec = decoded.cpu().detach().numpy()
+
+    print("New encoded shape:", x_train.shape)
 else:
     pass
 
@@ -81,7 +106,7 @@ for c in list_c:
     print("with", c, "acc:", acc, " f1:", f1, " prec:", prec, " recall:", rec, 'AUC:', auc)#, 'auc-c0:', aucs[1],
           # 'auc-c1:', aucs[2])
 
-# Saving results
-best_scores_df = df.iloc[[df['auc'].idxmax()]]
+# Saving results3
+best_scores_df = df.iloc[[df['auc'].idxmax()]]  # getting the best scores based on the highest AUC score.
 best_scores_df.to_csv(output_results, mode='a', header=not os.path.exists(output_results), index=False)
 

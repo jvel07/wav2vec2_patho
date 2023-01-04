@@ -113,18 +113,22 @@ def load_data(config):
     emb_type = config['discrimination']['emb_type']  # type of embeddings to load
 
     list_file_embs = glob.glob('{0}{1}*.npy'.format(path_embs, emb_type))
+    if len(list_file_embs) == 0:
+        print("No embeddings found in {}. Please, double check! \nExiting...".format(path_embs))
+        sys.exit()
     list_file_embs.sort()
-    print(path_embs)
-    print("{} files found".format(len(list_file_embs)))
+    # print(path_embs)
+    print("{0} files found in {1}".format(len(list_file_embs), path_embs))
     list_arr_embs = []
-    if 'bea' in path_embs:
-        list_file_embs = list_file_embs[0:10240]
+    if 'flat' in path_embs:
+        size_bea = int(config['size_bea'])
+        list_file_embs = list_file_embs[0:size_bea]
     for file in tqdm(list_file_embs, total=len(list_file_embs)):
         utterance_name = os.path.basename(file).split('.')[0]
         list_arr_embs.append(np.load(file))
     # To dataframe
     data = pd.DataFrame(list_arr_embs)
-    print("Data loaded!")
+    print("Data loaded from: {}\n".format(path_embs))
 
     return data
 
