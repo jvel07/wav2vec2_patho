@@ -20,9 +20,9 @@ class ReduceDims:
         # out_dir = kwargs.get('out_dir', None)
         # emb_type = kwargs.get('emb_type', None)
         # config_bea = kwargs.get('config_bea', None)
-        n_components = self.config_bea['dimension_reduction']['n_components']
-        save_pca = self.config_bea['dimension_reduction']['save_pca']
-        out_dir = self.config_bea['dimension_reduction']['pca_path']
+        n_components = self.config_bea['dimension_reduction']['pca']['n_components']
+        save_pca = self.config_bea['dimension_reduction']['pca']['save_pca']
+        out_dir = self.config_bea['dimension_reduction']['pca']['pca_path']
         emb_type = self.config_bea['discrimination']['emb_type']  # type of embeddings to load
 
         final_out_path = '{0}_{1}_{2}.pkl'.format(out_dir, str(n_components), emb_type)

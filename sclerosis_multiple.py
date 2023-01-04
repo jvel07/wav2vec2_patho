@@ -35,8 +35,12 @@ if scaler_type:
     x_train = scaler.transform(x_train)
     print("Train data standardized...")
 
-dim_reduction = 'autoencoder'  # autoencoder
+# Only modify this from the config file not here!
+dim_reduction = config_bea['dimension_reduction']['method']  # autoencoder
 size_reduced = 'None'  # new dimension size after reduction
+n_epochs = 'None'
+variance = 'None'
+
 if dim_reduction == 'PCA':
     # APPLY PCA!
     # Train PCA model using embeddings got from bea-train-flat (57k files fo each emb type: convs and hiddens)
@@ -50,21 +54,21 @@ if dim_reduction == 'PCA':
     x_train = pca.transform(x_train)  # transform (reduce dimensionality)
     print("New shape:", x_train.shape)
     size_reduced = x_train.shape[1]
+    variance = config_bea['dimension_reduction']['pca']['n_components']
 
 elif dim_reduction == 'autoencoder':
     print("\nReducing dimensions using Autoencoder. Initial shape: {}".format(x_train.shape))
     device = ('cuda' if torch.cuda.is_available() else 'cpu')
 
-    enc_shape = config_bea['dimension_reduction']['encoder_size']
-    bea_train_flat = torch.from_numpy(bea_train_flat).float().to(device)
-    x_train = torch.from_numpy(x_train).float().to(device)
-    x_train = torch.from_numpy(x_train).float().to(device)
-    y_train = torch.from_numpy(y_train).float().to(device)
+    n_epochs = config_bea['dimension_reduction']['autoencoder']['num_epochs']
+    enc_shape = config_bea['dimension_reduction']['autoencoder']['encoder_size']
+    bea_train_flat = torch.from_numpy(bea_train_flat).double().to(device)
+    x_train = torch.from_numpy(x_train).double().to(device)
     # defining the autoencoder and training
     encoder = Autoencoder(in_shape=x_train.shape[1], enc_shape=enc_shape).double().to(device)
     error = nn.MSELoss()
     optimizer = optim.Adam(encoder.parameters())
-    train(encoder, error, optimizer, 100, x_train)
+    train(encoder, error, optimizer, n_epochs, x_train)
 
     # reducing the dimensions
     with torch.no_grad():
@@ -74,6 +78,7 @@ elif dim_reduction == 'autoencoder':
         x_train = encoded.cpu().detach().numpy()
         dec = decoded.cpu().detach().numpy()
 
+    size_reduced = x_train.shape[1]
     print("New encoded shape:", x_train.shape)
 else:
     pass
@@ -100,7 +105,7 @@ for c in list_c:
     # data = {'c': c, 'acc': acc, 'f1': f1, 'prec': prec, 'recall': rec, 'auc': auc}
     data = {'c': c, 'acc': acc, 'f1': f1, 'prec': prec, 'recall': rec, 'auc': auc, 'Embedding': emb_type,
             'Reduction technique': '{0}-{1}'.format(dim_reduction, str(size_reduced)), 'Model used': model_used,
-            'std': str(scaler_type)}
+            'std': str(scaler_type), 'variance': variance, 'n_epochs': n_epochs}
     df = df.append(data, ignore_index=True)
 
     print("with", c, "acc:", acc, " f1:", f1, " prec:", prec, " recall:", rec, 'AUC:', auc)#, 'auc-c0:', aucs[1],
@@ -109,4 +114,4 @@ for c in list_c:
 # Saving results3
 best_scores_df = df.iloc[[df['auc'].idxmax()]]  # getting the best scores based on the highest AUC score.
 best_scores_df.to_csv(output_results, mode='a', header=not os.path.exists(output_results), index=False)
-
+print(best_scores_df)
