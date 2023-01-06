@@ -3,13 +3,15 @@ import os
 import torch
 from sklearn.metrics import accuracy_score, roc_auc_score, f1_score, precision_score, recall_score
 from torch import nn, optim
+from torch.utils.data import DataLoader
 
-from common import utils, fit_scaler, results_to_csv
+from common import utils, fit_scaler, results_to_csv, DataBuilder
 import numpy as np
 import pandas as pd
 from discrimination.discrimination_utils import load_data, roc_auc_score_multiclass
 from discrimination.svm_utils import train_svm
-from common.dimension_reduction import ReduceDims, Autoencoder, train
+from common.dimension_reduction import ReduceDims, Autoencoder, train, weights_init_uniform_rule, \
+    VariationalAutoencoder, CustomLoss, train_vae
 
 config = utils.load_config('config/config_sm.yml')  # loading configuration
 config_bea = utils.load_config('config/config_bea16k.yml')  # loading configuration for bea dataset (PCA, std)
@@ -80,6 +82,30 @@ elif dim_reduction == 'autoencoder':
 
     size_reduced = x_train.shape[1]
     print("New encoded shape:", x_train.shape)
+
+elif dim_reduction == 'vae':
+    print("\nReducing dimensions using Autoencoder. Initial shape: {}".format(x_train.shape))
+    device = ('cuda' if torch.cuda.is_available() else 'cpu')
+    n_epochs = config_bea['dimension_reduction']['autoencoder']['num_epochs']
+    log_interval = 50
+    train_losses = []
+
+    # converting data into dataloader (needed for training)
+    data_set = DataBuilder(bea_train_flat)
+    train_loader = DataLoader(dataset=data_set, batch_size=32)
+
+    # define params
+    D_in = data_set.x.shape[1]
+    H = 50
+    H2 = 12
+    model = VariationalAutoencoder(D_in, H, H2).to(device)
+    model.apply(weights_init_uniform_rule)
+    optimizer = optim.Adam(model.parameters(), lr=1e-3)
+    loss_mse = CustomLoss()
+
+    # train
+    for epoch in range(1, n_epochs+1):
+        train_vae(model, train_loader, epoch, device, optimizer, loss_mse)
 else:
     pass
 
@@ -105,7 +131,7 @@ for c in list_c:
     # data = {'c': c, 'acc': acc, 'f1': f1, 'prec': prec, 'recall': rec, 'auc': auc}
     data = {'c': c, 'acc': acc, 'f1': f1, 'prec': prec, 'recall': rec, 'auc': auc, 'Embedding': emb_type,
             'Reduction technique': '{0}-{1}'.format(dim_reduction, str(size_reduced)), 'Model used': model_used,
-            'std': str(scaler_type), 'variance': variance, 'n_epochs': n_epochs}
+            'std': str(scaler_type), 'n_epochs': n_epochs, 'variance': variance}
     df = df.append(data, ignore_index=True)
 
     print("with", c, "acc:", acc, " f1:", f1, " prec:", prec, " recall:", rec, 'AUC:', auc)#, 'auc-c0:', aucs[1],
@@ -114,4 +140,3 @@ for c in list_c:
 # Saving results3
 best_scores_df = df.iloc[[df['auc'].idxmax()]]  # getting the best scores based on the highest AUC score.
 best_scores_df.to_csv(output_results, mode='a', header=not os.path.exists(output_results), index=False)
-print(best_scores_df)

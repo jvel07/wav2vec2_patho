@@ -1,6 +1,8 @@
 import csv
 
+import torch
 import yaml
+from datasets import Dataset
 from sklearn.model_selection import train_test_split
 import glob
 import os
@@ -196,6 +198,8 @@ def create_csv_sm(in_path, out_file):
 
 
 """FUNCTIONS FOR AUDIO PREPROCESSING"""
+
+
 def label_to_id(label, label_list):
     if len(label_list) > 0:
         return label_list.index(label) if label in label_list else -1
@@ -279,6 +283,7 @@ class ComputeMetricsASR:
 
         return {"wer": wer}
 
+
 def map_to_array(batch):
     speech, _ = sf.read(batch["file"])
     batch["speech"] = speech
@@ -308,31 +313,32 @@ def fit_scaler(config_bea, bea_train_flat):
 
         os.makedirs(os.path.dirname(final_out_path), exist_ok=True)
         if os.path.isfile(final_out_path):
-            while True:
-                reply = input("Seems like a {0} scaler model was already trained:\n{1}. \nIf you changed the size of the sets, "
-                              "then you may want to train the model again.\n"
-                              " Do you want to retrain the scaler model? Yes or [No]: ".format(scaler_type, final_out_path) or "no")
-                if reply.lower() not in ('yes', 'no'):
-                    print("Please, enter either 'yes' or 'no'")
-                    continue
-                else:
-                    if reply.lower() == 'yes':
-                        print("Starting to train {} scaler...".format(scaler_type))
-                        # bea_train_flat = load_data(config=config_bea)  # load bea embeddings
-                        scaler = choose_scaler(scaler_type)
-                        scaler.fit(bea_train_flat)
-                        print("{} scaler fitted...".format(scaler_type))
-
-                        if save_scaler:
-                            pk.dump(scaler, open(final_out_path, 'wb'))
-                            print("Scaler model saved to:", final_out_path)
-                        return scaler
-                    else:
-                        print("You chose {}. Loading the existing scaler model...".format(reply))
-                        scaler = pk.load(open(final_out_path, 'rb'))
-                        return scaler
-                        # pass
-                    # break
+            # while True:
+            #     reply = input("Seems like a {0} scaler model was already trained:\n{1}. \nIf you changed the size of the sets, "
+            #                   "then you may want to train the model again.\n"
+            #                   " Do you want to retrain the scaler model? Yes or [No]: ".format(scaler_type, final_out_path) or "no")
+            #     if reply.lower() not in ('yes', 'no'):
+            #         print("Please, enter either 'yes' or 'no'")
+            #         continue
+            #     else:
+            #         if reply.lower() == 'yes':
+            #             print("Starting to train {} scaler...".format(scaler_type))
+            #             # bea_train_flat = load_data(config=config_bea)  # load bea embeddings
+            #             scaler = choose_scaler(scaler_type)
+            #             scaler.fit(bea_train_flat)
+            #             print("{} scaler fitted...".format(scaler_type))
+            #
+            #             if save_scaler:
+            #                 pk.dump(scaler, open(final_out_path, 'wb'))
+            #                 print("Scaler model saved to:", final_out_path)
+            #             return scaler
+            #         else:
+            print("Seems like a {0} scaler model was already trained.\n Loading the existing scaler model:{1}".format(
+                scaler_type, final_out_path))
+            scaler = pk.load(open(final_out_path, 'rb'))
+            return scaler
+            # pass
+            # break
         else:
             print("No trained scaler found, starting to train {} scaler...".format(scaler_type))
             # bea_train_flat = load_data(config=config_bea)  # load bea embeddings
@@ -365,4 +371,14 @@ def results_to_csv(file_name, list_columns, list_values):
             file_writer.writerow(list_values)
 
 
+class DataBuilder(Dataset):
+    def __init__(self, data):
+        self.x = data
+        self.x = torch.from_numpy(self.x)
+        self.len = self.x.shape[0]
 
+    def __getitem__(self, index):
+        return self.x[index]
+
+    def __len__(self):
+        return self.len

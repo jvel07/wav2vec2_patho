@@ -6,10 +6,10 @@ hf_cache_dir: '/media/jvel/data/hf_cache/'
 pretrained_model_details:
 #  checkpoint_path: '/srv/data/egasj/code/wav2vec2_patho/wav2vec2-large-xlsr-beaBase-20percent/checkpoint-51800'
 
-  checkpoint_path: '/media/jvel/data/wav2vec2 models/wav2vec2-large-xlsr-beaBase-20percent/checkpoint-51800'
+  checkpoint_path: '/media/jvel/data/wav2vec2 models/wav2vec2-large-xlsr-beaBase-20percent/checkpoint-51800' # ASR
 
-#  checkpoint_path: '/home/user/Documents/data/bea16k_hungarian/bea16k_3.0_hungarian/checkpoint-3390'
-#  checkpoint_path: '/home/user/Documents/data/bea16k_hungarian/bea16k_5.0_hungarian/checkpoint-5650'
+#  checkpoint_path: '/home/user/Documents/data/bea16k_hungarian/bea16k_3.0_hungarian/checkpoint-3390' # speakers
+#  checkpoint_path: '/home/user/Documents/data/bea16k_hungarian/bea16k_5.0_hungarian/checkpoint-5650' # speakers
 #  checkpoint_path: 'jonatasgrosman/wav2vec2-large-xlsr-53-hungarian'
 paths:
   to_labels: 'data/bea-base-train-flat/labels.csv'
@@ -25,7 +25,7 @@ discrimination:
 #  emb_type: 'convs'
 shuffle_data: True
 dimension_reduction:
-  method: 'autoencoder'
+  method: 'vae'
   pca:
     # best n_components = 193 (0.95); 302 (0.97) ==> hiddens;
     # best n_components = 79 (0.95); 118 (0.97) ==> convs;
@@ -33,11 +33,11 @@ dimension_reduction:
     save_pca: True
     pca_path: "data/bea-base-train-flat/dim_red/bea_train_flat_57k_pca" #.pkl
   autoencoder:
-    encoder_size: 471 # akin to n_components for the autoencoder
+    encoder_size: 256 # akin to n_components for the autoencoder  #178 fpr convs
     num_epochs: 20000
 
 data_scaling:
   save_scaling_model: True
   scaling_model_path: "data/bea-base-train-flat/dim_red/bea_train_flat" #.pkl
    # "minmax" "standard" "robust" "normalizer" null
-  scaler_type: "standard"
+  scaler_type: "normalizer"

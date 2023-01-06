@@ -5,14 +5,17 @@ import sys
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 
 import numpy as np
+import torch
 from sklearn import preprocessing
 from sklearn.decomposition import PCA, TruncatedSVD
 from sklearn.metrics import recall_score, roc_auc_score
 from sklearn.utils import shuffle
 # from imblearn.under_sampling import RandomUnderSampler
 import pandas as pd
+from torch.utils.data import Dataset
 from tqdm import tqdm
 
+# from common import results_to_csv
 from discrimination.svm_utils import train_svm
 
 
@@ -382,11 +385,15 @@ def train_test(task, list_labels, list_datasets, emb_type, std=True, resample=Fa
                        list_values=[emb_type, best_c, pca_comp, resample, pooling_type, std, uar_test])
 
 
-# Preprocessing data
-# Scaling and standardization
+# DATA LOADER
+class DataBuilder(Dataset):
+    def __init__(self, path):
+        self.x, self.standardizer, self.wine = load_data(path)
+        self.x = torch.from_numpy(self.x)
+        self.len = self.x.shape[0]
 
-# class PreprocessData:
-#     def __init__(self, train_data):
-#         self.train_data = train_data
-#
-#     def
+    def __getitem__(self, index):
+        return self.x[index]
+
+    def __len__(self):
+        return self.len
