@@ -25,7 +25,7 @@ discrimination:
 #  emb_type: 'convs'
 shuffle_data: True
 dimension_reduction:
-  method: 'vae'
+  method: 'vae'  # pca, autoencoder (basic), vae (variational autoencoder)
   pca:
     # best n_components = 193 (0.95); 302 (0.97) ==> hiddens;
     # best n_components = 79 (0.95); 118 (0.97) ==> convs;
@@ -33,11 +33,11 @@ dimension_reduction:
     save_pca: True
     pca_path: "data/bea-base-train-flat/dim_red/bea_train_flat_57k_pca" #.pkl
   autoencoder:
-    encoder_size: 256 # akin to n_components for the autoencoder  #178 fpr convs
-    num_epochs: 20000
+    encoder_size: 471 # akin to n_components for the autoencoder  #178 fpr convs; 471 hiddens
+    num_epochs: 1500
 
 data_scaling:
   save_scaling_model: True
   scaling_model_path: "data/bea-base-train-flat/dim_red/bea_train_flat" #.pkl
    # "minmax" "standard" "robust" "normalizer" null
-  scaler_type: "normalizer"
+  scaler_type: "robust"

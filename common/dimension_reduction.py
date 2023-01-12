@@ -160,7 +160,7 @@ def train(model, error, optimizer, n_epochs, x):
 
 ######  Variational Auto Encoder  ######
 class VariationalAutoencoder(nn.Module):
-    def __init__(self, D_in, H=50, H2=12, latent_dim=3):
+    def __init__(self, D_in, latent_dim, H=50, H2=12):
 
         # Encoder
         super(VariationalAutoencoder, self).__init__()
@@ -254,6 +254,7 @@ def weights_init_uniform_rule(m):
 
 
 def train_vae(model, train_loader, epoch, device, optimizer, loss_mse):
+    train_losses = []
     model.train()
     train_loss = 0
     for batch_idx, data in enumerate(train_loader):
@@ -272,7 +273,7 @@ def train_vae(model, train_loader, epoch, device, optimizer, loss_mse):
     if epoch % 200 == 0:
         print('====> Epoch: {} Average loss: {:.4f}'.format(
             epoch, train_loss / len(train_loader.dataset)))
-        train_loader.append(train_loss / len(train_loader.dataset))
+        train_losses.append(train_loss / len(train_loader.dataset))
 
 
 ######  Variational Auto Encoder   ######

@@ -59,7 +59,7 @@ if dim_reduction == 'PCA':
     variance = config_bea['dimension_reduction']['pca']['n_components']
 
 elif dim_reduction == 'autoencoder':
-    print("\nReducing dimensions using Autoencoder. Initial shape: {}".format(x_train.shape))
+    print("\nReducing dimensions using a basic Autoencoder. Initial shape: {}".format(x_train.shape))
     device = ('cuda' if torch.cuda.is_available() else 'cpu')
 
     n_epochs = config_bea['dimension_reduction']['autoencoder']['num_epochs']
@@ -84,28 +84,47 @@ elif dim_reduction == 'autoencoder':
     print("New encoded shape:", x_train.shape)
 
 elif dim_reduction == 'vae':
-    print("\nReducing dimensions using Autoencoder. Initial shape: {}".format(x_train.shape))
+    print("\nReducing dimensions using {1}. Initial shape: {0}".format(dim_reduction, x_train.shape))
     device = ('cuda' if torch.cuda.is_available() else 'cpu')
     n_epochs = config_bea['dimension_reduction']['autoencoder']['num_epochs']
     log_interval = 50
-    train_losses = []
 
     # converting data into dataloader (needed for training)
     data_set = DataBuilder(bea_train_flat)
     train_loader = DataLoader(dataset=data_set, batch_size=32)
+    train_data = DataBuilder(x_train)
+    x_loader = DataLoader(dataset=train_data)
 
     # define params
     D_in = data_set.x.shape[1]
     H = 50
     H2 = 12
-    model = VariationalAutoencoder(D_in, H, H2).to(device)
+    latent_dim = config_bea['dimension_reduction']['autoencoder']['encoder_size']  # output size of the reduced embs
+    model = VariationalAutoencoder(D_in, latent_dim, H, H2).to(device)
     model.apply(weights_init_uniform_rule)
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
     loss_mse = CustomLoss()
 
     # train
+    print("Training the Variational Autoencoder...")
     for epoch in range(1, n_epochs+1):
         train_vae(model, train_loader, epoch, device, optimizer, loss_mse)
+
+    #  Reducing dimensions of x_train
+    mu_output = []
+    with torch.no_grad():
+        for i, (data) in enumerate(x_loader):
+            data = data.to(device)
+            optimizer.zero_grad()
+            recon_batch, mu, logvar = model(data)
+
+            mu_tensor = mu
+            mu_output.append(mu_tensor)
+            mu_result = torch.cat(mu_output, dim=0)
+
+    size_reduced = mu_result.shape[1]
+    print("New encoded shape:", mu_result.shape)
+
 else:
     pass
 
@@ -138,5 +157,5 @@ for c in list_c:
           # 'auc-c1:', aucs[2])
 
 # Saving results3
-best_scores_df = df.iloc[[df['auc'].idxmax()]]  # getting the best scores based on the highest AUC score.
-best_scores_df.to_csv(output_results, mode='a', header=not os.path.exists(output_results), index=False)
+# best_scores_df = df.iloc[[df['auc'].idxmax()]]  # getting the best scores based on the highest AUC score.
+# best_scores_df.to_csv(output_results, mode='a', header=not os.path.exists(output_results), index=False)
