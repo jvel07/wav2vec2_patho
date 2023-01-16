@@ -1,20 +1,29 @@
 task: 'bea-base-train-flat'
-size_bea: '10240' # take a subset from the total 57548 files
+size_bea: '115096' #'15360' #'10240' # take a subset from the total 57548 files for each: wavs and txt
 #hf_cache_dir: '/srv/data/egasj/hf_cache/'
 #hf_cache_dir: '/home/user/Documents/hf_cache/'
 hf_cache_dir: '/media/jvel/data/hf_cache/'
 pretrained_model_details:
 #  checkpoint_path: '/srv/data/egasj/code/wav2vec2_patho/wav2vec2-large-xlsr-beaBase-20percent/checkpoint-51800'
 
-  checkpoint_path: '/media/jvel/data/wav2vec2 models/wav2vec2-large-xlsr-beaBase-20percent/checkpoint-51800' # ASR
+#  checkpoint_path: '/media/jvel/data/wav2vec2 models/wav2vec2-large-xlsr-beaBase-20percent/checkpoint-51800' # ASR
 
 #  checkpoint_path: '/home/user/Documents/data/bea16k_hungarian/bea16k_3.0_hungarian/checkpoint-3390' # speakers
 #  checkpoint_path: '/home/user/Documents/data/bea16k_hungarian/bea16k_5.0_hungarian/checkpoint-5650' # speakers
 #  checkpoint_path: 'jonatasgrosman/wav2vec2-large-xlsr-53-hungarian'
+#  checkpoint_path: 'facebook/wav2vec2-base-960h'
+#  checkpoint_path: 'facebook/wav2vec2-large-960h'
+  checkpoint_path: 'facebook/wav2vec2-large-xlsr-53'
+#  checkpoint_path: 'jonatasgrosman/wav2vec2-large-xlsr-53-english'
+#  checkpoint_path: 'facebook/wav2vec2-xls-r-300m'
+#  checkpoint_path: 'facebook/wav2vec2-xls-r-1b'
+#  checkpoint_path: 'facebook/data2vec-audio-base-960h'
+
+
 paths:
   to_labels: 'data/bea-base-train-flat/labels.csv'
   to_save_metadata: 'data/bea-base-train-flat/'
-  audio_path: '/media/jvel/data/audio/Bea_base/bea-base-train-flat/'
+  audio_path: '/media/jvel/data/audio/Bea-base/bea-base-train-flat/'
 #  audio_path: '/srv/data/egasj/corpora/Bea_base/bea-base-train-flat/'
 #  audio_path: '/home/user/Documents/corpora/BEA-base/bea-base-train-flat/'
   out_embeddings: 'data/bea-base-train-flat/embeddings/'
@@ -25,19 +34,20 @@ discrimination:
 #  emb_type: 'convs'
 shuffle_data: True
 dimension_reduction:
-  method: 'vae'  # pca, autoencoder (basic), vae (variational autoencoder)
+  method: None #'vae'  # pca, autoencoder (basic), vae (variational autoencoder)
   pca:
     # best n_components = 193 (0.95); 302 (0.97) ==> hiddens;
     # best n_components = 79 (0.95); 118 (0.97) ==> convs;
     n_components: 0.95  # first 4 => 0.97
     save_pca: True
-    pca_path: "data/bea-base-train-flat/dim_red/bea_train_flat_57k_pca" #.pkl
+    pca_path: "data/bea-base-train-flat/dim_red/bea_train_flat_pca" #.pkl
   autoencoder:
     encoder_size: 471 # akin to n_components for the autoencoder  #178 fpr convs; 471 hiddens
     num_epochs: 1500
+    save_path: "data/bea-base-train-flat/dim_red/autoencoder/bea_train_flat"
 
 data_scaling:
   save_scaling_model: True
   scaling_model_path: "data/bea-base-train-flat/dim_red/bea_train_flat" #.pkl
    # "minmax" "standard" "robust" "normalizer" null
-  scaler_type: "robust"
+  scaler_type: "minmax"

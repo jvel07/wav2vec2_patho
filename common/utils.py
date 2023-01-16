@@ -146,23 +146,28 @@ def create_csv_bea_base(corpora_path, out_file):
     if not os.path.exists(os.path.dirname(out_file)):
         os.makedirs(os.path.dirname(out_file))
 
-    # reading directories
-    transcriptions = glob.glob('{}*.txt'.format(corpora_path))
-    transcriptions.sort()
-    wavs = glob.glob('{}*.wav'.format(corpora_path))
-    wavs.sort()
+    if os.path.isfile(out_file):
+        print("{} already exists! Skipping generation...".format(out_file))
+    else:
+        # reading directories
+        transcriptions = glob.glob('{}*.txt'.format(corpora_path))
+        transcriptions.sort()
+        wavs = glob.glob('{}*.wav'.format(corpora_path))
+        wavs.sort()
 
-    final_list = []
-    for wav_path, text_file in tqdm(zip(wavs, transcriptions), total=len(wavs)):
-        with open(text_file, 'r') as f:
-            sentence = f.read()
-            f.close()
-        final_list.append(wav_path + ',' + sentence)
+        final_list = []
+        for wav_path, text_file in tqdm(zip(wavs, transcriptions), total=len(wavs)):
+            with open(text_file, 'r') as f:
+                sentence = f.read()
+                f.close()
+            final_list.append(wav_path + ',' + sentence)
 
-    df = pd.DataFrame([sub.split(",") for sub in final_list], columns=['file', 'sentence'])
+        df = pd.DataFrame([sub.split(",") for sub in final_list], columns=['file', 'sentence'])
+        # to_drop = df.shape[0] - int(size_bea)
+        # df.drop(df.tail(int(to_drop)).index, inplace=True)  # drop last n rows
 
-    df.to_csv(out_file, sep=',', index=False)
-    print("Data saved to {}".format(out_file))
+        df.to_csv(out_file, sep=',', index=False)
+        print("Data saved to {}. Size: {}".format(out_file, df.shape[0]))
 
 
 def create_csv_sm(in_path, out_file):
@@ -191,7 +196,7 @@ def create_csv_sm(in_path, out_file):
             label = 1
         final_list.append(wav_path + ',' + str(label))
 
-    df = pd.DataFrame([sub.split(",") for sub in final_list], columns=['path', 'label'])
+    df = pd.DataFrame([sub.split(",") for sub in final_list], columns=['file', 'label'])
 
     df.to_csv(out_file, sep=',', index=False)
     print("Data saved to {}".format(out_file))

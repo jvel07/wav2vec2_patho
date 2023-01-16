@@ -20,7 +20,7 @@ label_file = config['paths']['to_labels']  # path to the labels of the dataset
 output_results = config['paths']['output_results']  # path to csv for saving the results
 
 data = load_data(config=config)  # loading data
-bea_train_flat = load_data(config=config_bea)  # load bea embeddings
+# bea_train_flat = load_data(config=config_bea)  # load bea embeddings
 df_labels = pd.read_csv(label_file)  # loading labels
 data['label'] = df_labels.label.values  # adding labels to data
 # Shuffling data if needed
@@ -32,8 +32,10 @@ x_train, y_train = data.iloc[:, :-1].values, data.label.values  # train and labe
 # Standardizing data before reducing dimensions
 scaler_type = config_bea['data_scaling']['scaler_type']
 if scaler_type:
-    scaler = fit_scaler(config_bea, bea_train_flat)
-    bea_train_flat = scaler.transform(bea_train_flat)
+    scaler = fit_scaler(config_bea, x_train)
+    # scaler = fit_scaler(config_bea, bea_train_flat)
+    bea_train_flat = scaler.transform(x_train)
+    # bea_train_flat = scaler.transform(bea_train_flat)
     x_train = scaler.transform(x_train)
     print("Train data standardized...")
 
@@ -84,7 +86,7 @@ elif dim_reduction == 'autoencoder':
     print("New encoded shape:", x_train.shape)
 
 elif dim_reduction == 'vae':
-    print("\nReducing dimensions using {1}. Initial shape: {0}".format(dim_reduction, x_train.shape))
+    print("\nReducing dimensions using {0}. Initial shape: {1}".format(dim_reduction, x_train.shape))
     device = ('cuda' if torch.cuda.is_available() else 'cpu')
     n_epochs = config_bea['dimension_reduction']['autoencoder']['num_epochs']
     log_interval = 50
@@ -93,7 +95,7 @@ elif dim_reduction == 'vae':
     data_set = DataBuilder(bea_train_flat)
     train_loader = DataLoader(dataset=data_set, batch_size=32)
     train_data = DataBuilder(x_train)
-    x_loader = DataLoader(dataset=train_data)
+    x_loader = DataLoader(dataset=train_data, batch_size=32)
 
     # define params
     D_in = data_set.x.shape[1]
@@ -108,12 +110,12 @@ elif dim_reduction == 'vae':
     # train
     print("Training the Variational Autoencoder...")
     for epoch in range(1, n_epochs+1):
-        train_vae(model, train_loader, epoch, device, optimizer, loss_mse)
+        model_trained = train_vae(model, train_loader, epoch, device, optimizer, loss_mse, config_bea)
 
     #  Reducing dimensions of x_train
     mu_output = []
     with torch.no_grad():
-        for i, (data) in enumerate(x_loader):
+        for i, data in enumerate(x_loader):
             data = data.to(device)
             optimizer.zero_grad()
             recon_batch, mu, logvar = model(data)
@@ -124,6 +126,7 @@ elif dim_reduction == 'vae':
 
     size_reduced = mu_result.shape[1]
     print("New encoded shape:", mu_result.shape)
+    x_train = mu_result.detach().cpu().numpy()
 
 else:
     pass
@@ -131,7 +134,7 @@ else:
 # Train SVM
 print("Using", config['discrimination']['emb_type'])
 list_c = [1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 0.1]
-df = pd.DataFrame(data, columns=['c', 'acc', 'f1', 'prec', 'recall', 'auc'])
+df = pd.DataFrame(columns=['c', 'acc', 'f1', 'prec', 'recall', 'auc'])
 
 emb_type = config['discrimination']['emb_type']
 model_used = config['pretrained_model_details']['checkpoint_path'].split('/')[-2]
@@ -148,10 +151,10 @@ for c in list_c:
     prec = precision_score(array_trues, array_preds)
     rec = recall_score(array_trues, array_preds)
     # data = {'c': c, 'acc': acc, 'f1': f1, 'prec': prec, 'recall': rec, 'auc': auc}
-    data = {'c': c, 'acc': acc, 'f1': f1, 'prec': prec, 'recall': rec, 'auc': auc, 'Embedding': emb_type,
+    dict_metrics = {'c': c, 'acc': acc, 'f1': f1, 'prec': prec, 'recall': rec, 'auc': auc, 'Embedding': emb_type,
             'Reduction technique': '{0}-{1}'.format(dim_reduction, str(size_reduced)), 'Model used': model_used,
             'std': str(scaler_type), 'n_epochs': n_epochs, 'variance': variance}
-    df = df.append(data, ignore_index=True)
+    df = df.append(dict_metrics, ignore_index=True)
 
     print("with", c, "acc:", acc, " f1:", f1, " prec:", prec, " recall:", rec, 'AUC:', auc)#, 'auc-c0:', aucs[1],
           # 'auc-c1:', aucs[2])

@@ -253,7 +253,7 @@ def weights_init_uniform_rule(m):
         m.bias.data.fill_(0)
 
 
-def train_vae(model, train_loader, epoch, device, optimizer, loss_mse):
+def train_vae(model, train_loader, epoch, device, optimizer, loss_mse, config_bea):
     train_losses = []
     model.train()
     train_loss = 0
@@ -274,6 +274,14 @@ def train_vae(model, train_loader, epoch, device, optimizer, loss_mse):
         print('====> Epoch: {} Average loss: {:.4f}'.format(
             epoch, train_loss / len(train_loader.dataset)))
         train_losses.append(train_loss / len(train_loader.dataset))
+        out_path = "{}_{}_{}_vae".format(config_bea["dimension_reduction"]["autoencoder"]["save_path"],
+                                         len(train_loader.dataset), config_bea["data_scaling"]["scaler_type"])
+        torch.save(model, out_path)
+
+    return model
 
 
 ######  Variational Auto Encoder   ######
+
+
+

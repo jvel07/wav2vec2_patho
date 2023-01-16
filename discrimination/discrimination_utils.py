@@ -111,7 +111,14 @@ def load_data_old(task, list_datasets, list_labels, emb_type):
 
 
 def load_data(config):
-    model_used = config['pretrained_model_details']['checkpoint_path'].split('/')[-2]
+    checkpoint_path = config['pretrained_model_details']['checkpoint_path']
+    if "jonatasgrosman" in checkpoint_path:
+        model_used = checkpoint_path.split('/')[-1]
+    elif "facebook" in checkpoint_path:
+        model_used = checkpoint_path.split('/')[-1]
+    else:
+        model_used = checkpoint_path.split('/')[-2]
+    # model_used = config['pretrained_model_details']['checkpoint_path'].split('/')[-2]
     path_embs = os.path.join(config['paths']['out_embeddings'], model_used + '/') #config['discrimination']['emb_type']+'/')
     emb_type = config['discrimination']['emb_type']  # type of embeddings to load
 
@@ -397,3 +404,9 @@ class DataBuilder(Dataset):
 
     def __len__(self):
         return self.len
+
+
+## loading all embeddings
+def load_joint_embs(task):
+    root_emb_path = "..{}/data/embeddings/".format(task)
+

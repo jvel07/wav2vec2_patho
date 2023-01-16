@@ -106,8 +106,14 @@ def extract_embeddings_and_save(dataset_list, feature_extractor, model, chunk_si
     :param feature_extractor: Object. An instance of either Wav2Vec2Processor or Wav2Vec2FeatureExtractor.
     :return:
     """
+    checkpoint_path = config['pretrained_model_details']['checkpoint_path']
 
-    model_used = config['pretrained_model_details']['checkpoint_path'].split('/')[-2]
+    if "jonatasgrosman" in checkpoint_path:
+        model_used = checkpoint_path.split('/')[-1]
+    elif "facebook" in checkpoint_path:
+        model_used = checkpoint_path.split('/')[-1]
+    else:
+        model_used = checkpoint_path.split('/')[-2]
 
     sampling_rate = config['sampling_rate']
     chunk_size = chunk_size
