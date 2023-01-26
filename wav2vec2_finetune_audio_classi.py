@@ -34,10 +34,9 @@ data_files = {
     'train': labels,
 }
 
-bea16k_set = load_dataset('csv', data_files=data_files, delimiter=',', cache_dir=config['hf_cache_dir'],
+complete_dataset = load_dataset('csv', data_files=data_files, delimiter=',', cache_dir=config['hf_cache_dir'],
                           download_mode=DownloadMode['REUSE_DATASET_IF_EXISTS'])
-train_set = bea16k_set['train']
-val_set = bea16k_set['validation']
+train_set = complete_dataset['train']
 
 # Getting unique labels
 label_list = train_set.unique('label')
@@ -45,9 +44,7 @@ label_list.sort()
 num_labels = len(label_list)
 
 # Configurations
-lang = 'english'
-model_name_or_path = "jonatasgrosman/wav2vec2-large-xlsr-53-{}".format(lang)
-pooling_mode = "mean"
+model_name = config['pretrained_model_details']['checkpoint_path']
 
 config = AutoConfig.from_pretrained(
     model_name_or_path,

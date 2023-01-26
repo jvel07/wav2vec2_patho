@@ -19,9 +19,11 @@ from common.utils_fine_tune import Wav2Vec2ForSpeechClassification
 
 
 # def train():
-task = 'Bea_base'
+task = 'CovidSpeech'
 
-train_path = "/srv/data/egasj/corpora/{}/bea-base-dev-train/".format(task)
+audio_base ='/media/jvel/data/audio/{}/'
+
+train_path = "/media/jvel/data/audio/CovidSpeech/".format(task)
 out_file_train = "/srv/data/egasj/corpora/{}/metadata/bea-base-train.csv".format(task)
 
 dev_path = "/srv/data/egasj/corpora/{}/bea-base-dev-spont-flat/".format(task)

@@ -17,7 +17,7 @@ from yaml import SafeLoader
 from tqdm import tqdm
 import pickle as pk
 
-from discrimination.discrimination_utils import load_data
+from discrimination.discrimination_utils import load_data, check_model_used
 
 
 def load_config(path_yaml):
@@ -202,6 +202,8 @@ def create_csv_sm(in_path, out_file):
     print("Data saved to {}".format(out_file))
 
 
+
+
 """FUNCTIONS FOR AUDIO PREPROCESSING"""
 
 
@@ -313,8 +315,11 @@ def fit_scaler(config_bea, bea_train_flat):
     scaler_type = config_bea['data_scaling']['scaler_type']
     size = config_bea['size_bea']
 
+    checkpoint_path = config_bea['pretrained_model_details']['checkpoint_path']
+    model_used = check_model_used(checkpoint_path)
+
     if scaler_type is not None:
-        final_out_path = '{0}_{1}_{2}_{3}.pkl'.format(out_dir, str(scaler_type), emb_type, size)
+        final_out_path = '{0}_{1}_{2}_{3}_{4}.pkl'.format(out_dir, str(scaler_type), emb_type, size, model_used)
 
         os.makedirs(os.path.dirname(final_out_path), exist_ok=True)
         if os.path.isfile(final_out_path):

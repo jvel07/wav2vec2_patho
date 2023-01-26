@@ -8,18 +8,25 @@ from torch.utils.data import DataLoader
 from common import utils, fit_scaler, results_to_csv, DataBuilder
 import numpy as np
 import pandas as pd
-from discrimination.discrimination_utils import load_data, roc_auc_score_multiclass
+from discrimination.discrimination_utils import load_data, roc_auc_score_multiclass, check_model_used, load_joint_embs
 from discrimination.svm_utils import train_svm
 from common.dimension_reduction import ReduceDims, Autoencoder, train, weights_init_uniform_rule, \
     VariationalAutoencoder, CustomLoss, train_vae
 
 config = utils.load_config('config/config_sm.yml')  # loading configuration
-config_bea = utils.load_config('config/config_bea16k.yml')  # loading configuration for bea dataset (PCA, std)
+# config_bea = utils.load_config('config/config_bea16k.yml')  # loading configuration for bea dataset (PCA, std)
 shuffle_data = config['shuffle_data']  # whether to shuffle the training data
 label_file = config['paths']['to_labels']  # path to the labels of the dataset
 output_results = config['paths']['output_results']  # path to csv for saving the results
 
-data = load_data(config=config)  # loading data
+emb_type = config['discrimination']['emb_type']
+checkpoint_path = config['pretrained_model_details']['checkpoint_path']
+model_used = check_model_used(checkpoint_path)
+
+if config['feature_combination']:
+    data = load_joint_embs(config=config)
+else:
+    data = load_data(config=config)  # loading data
 # bea_train_flat = load_data(config=config_bea)  # load bea embeddings
 df_labels = pd.read_csv(label_file)  # loading labels
 data['label'] = df_labels.label.values  # adding labels to data
@@ -30,17 +37,19 @@ if shuffle_data:
 x_train, y_train = data.iloc[:, :-1].values, data.label.values  # train and labels
 
 # Standardizing data before reducing dimensions
-scaler_type = config_bea['data_scaling']['scaler_type']
-if scaler_type:
-    scaler = fit_scaler(config_bea, x_train)
+# scaler_type = config_bea['data_scaling']['scaler_type']
+scaler_type = config['data_scaling']['scaler_type']
+if scaler_type != 'None':
+    scaler = fit_scaler(config, x_train)
     # scaler = fit_scaler(config_bea, bea_train_flat)
-    bea_train_flat = scaler.transform(x_train)
+    # bea_train_flat = scaler.transform(x_train)
     # bea_train_flat = scaler.transform(bea_train_flat)
     x_train = scaler.transform(x_train)
     print("Train data standardized...")
 
 # Only modify this from the config file not here!
-dim_reduction = config_bea['dimension_reduction']['method']  # autoencoder
+# dim_reduction = config_bea['dimension_reduction']['method']  # autoencoder
+dim_reduction = config['dimension_reduction']['method']  # autoencoder
 size_reduced = 'None'  # new dimension size after reduction
 n_epochs = 'None'
 variance = 'None'
@@ -49,24 +58,25 @@ if dim_reduction == 'PCA':
     # APPLY PCA!
     # Train PCA model using embeddings got from bea-train-flat (57k files fo each emb type: convs and hiddens)
     # Transform the dataset using the fitted PCA model
-    reduce_dims = ReduceDims(config_bea=config_bea)
+    reduce_dims = ReduceDims(config_bea=config)
     # if not scaler_type
     #     scaler = fit_scaler(config_bea, bea_train_flat)
     #     bea_train_flat = scaler.transform(bea_train_flat)
 
-    pca = reduce_dims.fit_pca(bea_train_flat)  # train PCA
+    # pca = reduce_dims.fit_pca(bea_train_flat)  # train PCA
+    pca = reduce_dims.fit_pca(x_train)  # train PCA
     x_train = pca.transform(x_train)  # transform (reduce dimensionality)
     print("New shape:", x_train.shape)
     size_reduced = x_train.shape[1]
-    variance = config_bea['dimension_reduction']['pca']['n_components']
+    variance = config['dimension_reduction']['pca']['n_components']
 
 elif dim_reduction == 'autoencoder':
     print("\nReducing dimensions using a basic Autoencoder. Initial shape: {}".format(x_train.shape))
     device = ('cuda' if torch.cuda.is_available() else 'cpu')
 
-    n_epochs = config_bea['dimension_reduction']['autoencoder']['num_epochs']
-    enc_shape = config_bea['dimension_reduction']['autoencoder']['encoder_size']
-    bea_train_flat = torch.from_numpy(bea_train_flat).double().to(device)
+    n_epochs = config['dimension_reduction']['autoencoder']['num_epochs']
+    enc_shape = config['dimension_reduction']['autoencoder']['encoder_size']
+    # bea_train_flat = torch.from_numpy(bea_train_flat).double().to(device)
     x_train = torch.from_numpy(x_train).double().to(device)
     # defining the autoencoder and training
     encoder = Autoencoder(in_shape=x_train.shape[1], enc_shape=enc_shape).double().to(device)
@@ -88,7 +98,7 @@ elif dim_reduction == 'autoencoder':
 elif dim_reduction == 'vae':
     print("\nReducing dimensions using {0}. Initial shape: {1}".format(dim_reduction, x_train.shape))
     device = ('cuda' if torch.cuda.is_available() else 'cpu')
-    n_epochs = config_bea['dimension_reduction']['autoencoder']['num_epochs']
+    n_epochs = config['dimension_reduction']['autoencoder']['num_epochs']
     log_interval = 50
 
     # converting data into dataloader (needed for training)
@@ -101,7 +111,7 @@ elif dim_reduction == 'vae':
     D_in = data_set.x.shape[1]
     H = 50
     H2 = 12
-    latent_dim = config_bea['dimension_reduction']['autoencoder']['encoder_size']  # output size of the reduced embs
+    latent_dim = config['dimension_reduction']['autoencoder']['encoder_size']  # output size of the reduced embs
     model = VariationalAutoencoder(D_in, latent_dim, H, H2).to(device)
     model.apply(weights_init_uniform_rule)
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
@@ -136,10 +146,8 @@ print("Using", config['discrimination']['emb_type'])
 list_c = [1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 0.1]
 df = pd.DataFrame(columns=['c', 'acc', 'f1', 'prec', 'recall', 'auc'])
 
-emb_type = config['discrimination']['emb_type']
-model_used = config['pretrained_model_details']['checkpoint_path'].split('/')[-2]
-
 for c in list_c:
+    # TRY ALSO MLP OR KNN!!!!
     array_preds, array_trues, array_probs = train_svm(svm_type='linear-loocv', C=c, X=x_train, y=np.ravel(y_train))
 
     acc = accuracy_score(array_trues, array_preds)
@@ -160,5 +168,5 @@ for c in list_c:
           # 'auc-c1:', aucs[2])
 
 # Saving results3
-# best_scores_df = df.iloc[[df['auc'].idxmax()]]  # getting the best scores based on the highest AUC score.
-# best_scores_df.to_csv(output_results, mode='a', header=not os.path.exists(output_results), index=False)
+best_scores_df = df.iloc[[df['auc'].idxmax()]]  # getting the best scores based on the highest AUC score.
+best_scores_df.to_csv(output_results, mode='a', header=not os.path.exists(output_results), index=False)

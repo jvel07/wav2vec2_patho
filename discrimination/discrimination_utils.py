@@ -110,14 +110,22 @@ def load_data_old(task, list_datasets, list_labels, emb_type):
            dict_data['y_test']
 
 
-def load_data(config):
-    checkpoint_path = config['pretrained_model_details']['checkpoint_path']
+
+def check_model_used(checkpoint_path):
     if "jonatasgrosman" in checkpoint_path:
         model_used = checkpoint_path.split('/')[-1]
     elif "facebook" in checkpoint_path:
         model_used = checkpoint_path.split('/')[-1]
     else:
         model_used = checkpoint_path.split('/')[-2]
+
+    return model_used
+
+def load_data(config):
+    checkpoint_path = config['pretrained_model_details']['checkpoint_path']
+
+    model_used = check_model_used(checkpoint_path)
+
     # model_used = config['pretrained_model_details']['checkpoint_path'].split('/')[-2]
     path_embs = os.path.join(config['paths']['out_embeddings'], model_used + '/') #config['discrimination']['emb_type']+'/')
     emb_type = config['discrimination']['emb_type']  # type of embeddings to load
@@ -127,7 +135,7 @@ def load_data(config):
         print("No embeddings found in {}. Please, double check! \nExiting...".format(path_embs))
         sys.exit()
     list_file_embs.sort()
-    # print(path_embs)
+    print(path_embs)
     print("{0} files found in {1}".format(len(list_file_embs), path_embs))
     list_arr_embs = []
     if 'flat' in path_embs:
@@ -138,7 +146,8 @@ def load_data(config):
         list_arr_embs.append(np.load(file))
     # To dataframe
     data = pd.DataFrame(list_arr_embs)
-    print("Data loaded from: {}\n".format(path_embs))
+    print("Data loaded from: {}".format(path_embs))
+    print("Shape: \n", data.shape)
 
     return data
 
@@ -407,6 +416,41 @@ class DataBuilder(Dataset):
 
 
 ## loading all embeddings
-def load_joint_embs(task):
-    root_emb_path = "..{}/data/embeddings/".format(task)
+def load_joint_embs(config):
+    root_emb_path = "data/{}/embeddings/".format(config['task'])
+    list_embeddings = [
+        'bea16k_3.0_hungarian',
+        'bea16k_5.0_hungarian',
+        'wav2vec2-large-xlsr-53',
+        'wav2vec2-large-xlsr-53-english',
+        'wav2vec2-large-xlsr-53-hungarian',
+        'wav2vec2-large-xlsr-beaBase-20percent',
+        'wav2vec2-xls-r-1b',
+        'wav2vec2-xls-r-300m'
+    ]
+    accumulated_embs = []
+    for model in list_embeddings:
+        path = os.path.join(root_emb_path, model)
+        list_file_embs = glob.glob('{0}/{1}*.npy'.format(path, config['discrimination']['emb_type']))
+        if len(list_file_embs) == 0:
+            print("No embeddings found in {}. Please, double check! \nExiting...".format(path))
+            sys.exit()
+        list_file_embs.sort()
+        print(path)
+        print("{0} files found in {1}".format(len(list_file_embs), path))
+        list_arr_embs = []
+        for file in tqdm(list_file_embs, total=len(list_file_embs)):
+            utterance_name = os.path.basename(file).split('.')[0]
+            list_arr_embs.append(np.load(file))
+        # To dataframe
+        # data = pd.DataFrame(list_arr_embs)
+        print("Data loaded from: {}\n".format(path))
+        # x_train = data.iloc[:, :-1].values
+        accumulated_embs.append(np.vstack(list_arr_embs))
+    accumulated_embs_np = np.concatenate(accumulated_embs, axis=1)
+    print("Combined embeddings shape:", accumulated_embs_np.shape)
+    data = pd.DataFrame(accumulated_embs_np)
+
+    return data
+
 

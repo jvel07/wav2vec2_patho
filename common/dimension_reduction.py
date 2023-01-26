@@ -33,31 +33,9 @@ class ReduceDims:
 
         os.makedirs(os.path.dirname(final_out_path), exist_ok=True)
         if os.path.isfile(final_out_path):
-            while True:
-                reply = input(
-                    "Seems like the PCA model was already trained:\n{}. \nIf you changed the size of the sets, "
-                    "or the value of the variance, then you may want to train the model again.\n"
-                    " Do you want to retrain the PCA model? Yes or [No]: ".format(final_out_path) or "no")
-                if reply.lower() not in ('yes', 'no'):
-                    print("Please, enter either 'yes' or 'no'")
-                    continue
-                else:
-                    if reply.lower() == 'yes':
-                        print("Starting to train PCA...")
-                        pca = PCA(n_components=n_components)
-                        pca.fit(bea_train_flat)
-                        print("PCA fitted...")
-
-                        if save_pca:
-                            pk.dump(pca, open(final_out_path, 'wb'))
-                            print("PCA model saved to:", final_out_path)
-                        return pca
-                    else:
-                        print("You chose {}. Loading the existing PCA model...".format(reply))
-                        pca = pk.load(open(final_out_path, 'rb'))
-                        return pca
-                        # pass
-                    # break
+            print("Seems like the PCA model was already trained:\n{}. Loading this model...".format(final_out_path))
+            pca = pk.load(open(final_out_path, 'rb'))
+            return pca
         else:
             print("No trained PCA found; starting to train PCA...")
             # bea_train_flat = load_data(config=self.config_bea)  # load bea embeddings
