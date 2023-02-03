@@ -322,45 +322,45 @@ def fit_scaler(config_bea, bea_train_flat):
         final_out_path = '{0}_{1}_{2}_{3}_{4}.pkl'.format(out_dir, str(scaler_type), emb_type, size, model_used)
 
         os.makedirs(os.path.dirname(final_out_path), exist_ok=True)
-        if os.path.isfile(final_out_path):
-            # while True:
-            #     reply = input("Seems like a {0} scaler model was already trained:\n{1}. \nIf you changed the size of the sets, "
-            #                   "then you may want to train the model again.\n"
-            #                   " Do you want to retrain the scaler model? Yes or [No]: ".format(scaler_type, final_out_path) or "no")
-            #     if reply.lower() not in ('yes', 'no'):
-            #         print("Please, enter either 'yes' or 'no'")
-            #         continue
-            #     else:
-            #         if reply.lower() == 'yes':
-            #             print("Starting to train {} scaler...".format(scaler_type))
-            #             # bea_train_flat = load_data(config=config_bea)  # load bea embeddings
-            #             scaler = choose_scaler(scaler_type)
-            #             scaler.fit(bea_train_flat)
-            #             print("{} scaler fitted...".format(scaler_type))
-            #
-            #             if save_scaler:
-            #                 pk.dump(scaler, open(final_out_path, 'wb'))
-            #                 print("Scaler model saved to:", final_out_path)
-            #             return scaler
-            #         else:
-            print("Seems like a {0} scaler model was already trained.\n Loading the existing scaler model:{1}".format(
-                scaler_type, final_out_path))
-            scaler = pk.load(open(final_out_path, 'rb'))
-            return scaler
-            # pass
-            # break
-        else:
-            print("No trained scaler found, starting to train {} scaler...".format(scaler_type))
-            # bea_train_flat = load_data(config=config_bea)  # load bea embeddings
-            # train Scaler
-            scaler = choose_scaler(scaler_type)
-            scaler.fit(bea_train_flat)
-            print("{} scaler fitted...".format(scaler_type))
+        # if os.path.isfile(final_out_path):
+        #     # while True:
+        #     #     reply = input("Seems like a {0} scaler model was already trained:\n{1}. \nIf you changed the size of the sets, "
+        #     #                   "then you may want to train the model again.\n"
+        #     #                   " Do you want to retrain the scaler model? Yes or [No]: ".format(scaler_type, final_out_path) or "no")
+        #     #     if reply.lower() not in ('yes', 'no'):
+        #     #         print("Please, enter either 'yes' or 'no'")
+        #     #         continue
+        #     #     else:
+        #     #         if reply.lower() == 'yes':
+        #     #             print("Starting to train {} scaler...".format(scaler_type))
+        #     #             # bea_train_flat = load_data(config=config_bea)  # load bea embeddings
+        #     #             scaler = choose_scaler(scaler_type)
+        #     #             scaler.fit(bea_train_flat)
+        #     #             print("{} scaler fitted...".format(scaler_type))
+        #     #
+        #     #             if save_scaler:
+        #     #                 pk.dump(scaler, open(final_out_path, 'wb'))
+        #     #                 print("Scaler model saved to:", final_out_path)
+        #     #             return scaler
+        #     #         else:
+        #     print("Seems like a {0} scaler model was already trained.\n Loading the existing scaler model:{1}".format(
+        #         scaler_type, final_out_path))
+        #     scaler = pk.load(open(final_out_path, 'rb'))
+        #     return scaler
+        #     # pass
+        #     # break
+        # else:
+        print("No trained scaler found, starting to train {} scaler...".format(scaler_type))
+        # bea_train_flat = load_data(config=config_bea)  # load bea embeddings
+        # train Scaler
+        scaler = choose_scaler(scaler_type)
+        scaler.fit(bea_train_flat)
+        print("{} scaler fitted...".format(scaler_type))
 
-            if save_scaler:
-                pk.dump(scaler, open(final_out_path, 'wb'))
-                print("Scaler model saved to:", final_out_path)
-            return scaler
+        if save_scaler:
+            pk.dump(scaler, open(final_out_path, 'wb'))
+            print("Scaler model saved to:", final_out_path)
+        return scaler
     else:
         print("Skipping data scaling...")
 

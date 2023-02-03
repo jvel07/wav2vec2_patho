@@ -32,22 +32,22 @@ class ReduceDims:
         final_out_path = '{0}_{1}_{2}.pkl'.format(out_dir, str(n_components), emb_type)
 
         os.makedirs(os.path.dirname(final_out_path), exist_ok=True)
-        if os.path.isfile(final_out_path):
-            print("Seems like the PCA model was already trained:\n{}. Loading this model...".format(final_out_path))
-            pca = pk.load(open(final_out_path, 'rb'))
-            return pca
-        else:
-            print("No trained PCA found; starting to train PCA...")
-            # bea_train_flat = load_data(config=self.config_bea)  # load bea embeddings
-            # train PCA
-            pca = PCA(n_components=n_components)
-            pca.fit(bea_train_flat)
-            print("PCA fitted...")
+        # if os.path.isfile(final_out_path):
+        #     print("Seems like the PCA model was already trained:\n{}. Loading this model...".format(final_out_path))
+        #     pca = pk.load(open(final_out_path, 'rb'))
+        #     return pca
+        # else:
+        print("No trained PCA found; starting to train PCA...")
+        # bea_train_flat = load_data(config=self.config_bea)  # load bea embeddings
+        # train PCA
+        pca = PCA(n_components=46)
+        pca.fit(bea_train_flat)
+        print("PCA fitted...")
 
-            if save_pca:
-                pk.dump(pca, open(final_out_path, 'wb'))
-                print("PCA model saved to:", final_out_path)
-            return pca
+        if save_pca:
+            pk.dump(pca, open(final_out_path, 'wb'))
+            print("PCA model saved to:", final_out_path)
+        return pca
 
     def transform_pca(self, pca_fitted):
         transformed_data = pca_fitted.transform(self.transform_data)

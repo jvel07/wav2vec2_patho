@@ -33,8 +33,8 @@ save_path = config['paths']['to_save_metadata']  # path to save the csv file con
 # Loading feature extractor and model
 feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(model_name)
 # feature_extractor = Wav2Vec2Processor.from_pretrained(model_name)  # use this if the model has Wav2Vec2CTCTokenizer
-# model = Wav2Vec2Model.from_pretrained(model_name)
-model = Data2VecAudioForCTC.from_pretrained(model_name)
+model = Wav2Vec2Model.from_pretrained(model_name)
+# model = Data2VecAudioForCTC.from_pretrained(model_name)
 
 # Load data in HF 'datasets' class format
 data_files = {

@@ -112,6 +112,8 @@ def extract_embeddings_and_save(dataset_list, feature_extractor, model, chunk_si
         model_used = checkpoint_path.split('/')[-1]
     elif "facebook" in checkpoint_path:
         model_used = checkpoint_path.split('/')[-1]
+    elif "emotion" in checkpoint_path:
+        model_used = checkpoint_path.split('/')[-1]
     else:
         model_used = checkpoint_path.split('/')[-2]
 

@@ -152,6 +152,13 @@ def load_data(config):
     return data
 
 
+def load_baseline_feats(path, delimiter):
+    # load the x-vectors
+    feats = np.loadtxt(path, delimiter=delimiter)
+    data = pd.DataFrame(feats)
+    return data
+
+
 class LoadMulti:
     def __init__(self):
 
@@ -419,12 +426,12 @@ class DataBuilder(Dataset):
 def load_joint_embs(config):
     root_emb_path = "data/{}/embeddings/".format(config['task'])
     list_embeddings = [
-        'bea16k_3.0_hungarian',
-        'bea16k_5.0_hungarian',
+        # 'bea16k_3.0_hungarian',
+        # 'bea16k_5.0_hungarian',
         'wav2vec2-large-xlsr-53',
-        'wav2vec2-large-xlsr-53-english',
+        # 'wav2vec2-large-xlsr-53-english',
         'wav2vec2-large-xlsr-53-hungarian',
-        'wav2vec2-large-xlsr-beaBase-20percent',
+        # 'wav2vec2-large-xlsr-beaBase-20percent',
         'wav2vec2-xls-r-1b',
         'wav2vec2-xls-r-300m'
     ]

@@ -19,11 +19,11 @@ from common.utils_fine_tune import Wav2Vec2ForSpeechClassification
 
 
 # def train():
-task = 'CovidSpeech'
+# audio_base ='/media/jvel/data/audio/{}/'
 
-audio_base ='/media/jvel/data/audio/{}/'
+task = 'Bea_base'
 
-train_path = "/media/jvel/data/audio/CovidSpeech/".format(task)
+train_path = "/srv/data/egasj/corpora/{}/bea-base-train-flat/".format(task)
 out_file_train = "/srv/data/egasj/corpora/{}/metadata/bea-base-train.csv".format(task)
 
 dev_path = "/srv/data/egasj/corpora/{}/bea-base-dev-spont-flat/".format(task)
@@ -108,7 +108,7 @@ processor = Wav2Vec2Processor(feature_extractor=feature_extractor, tokenizer=tok
 
 # Combinations (total of 69176, 4344):
 # E.g.: 20% --> tr: ~13800; val: ~900 (rounded)
-use_percentage = 35
+use_percentage = 40
 len_orig_train = (len(train_set))
 number_of_training_samples = round((len_orig_train * use_percentage) / 100)
 train_set = train_set.shuffle(seed=42).select(range(number_of_training_samples))

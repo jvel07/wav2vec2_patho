@@ -8,7 +8,10 @@ from torch.utils.data import DataLoader
 from common import utils, fit_scaler, results_to_csv, DataBuilder
 import numpy as np
 import pandas as pd
-from discrimination.discrimination_utils import load_data, roc_auc_score_multiclass, check_model_used, load_joint_embs
+
+from common.metrics import calculate_eer
+from discrimination.discrimination_utils import load_data, roc_auc_score_multiclass, check_model_used, load_joint_embs, \
+     load_baseline_feats
 from discrimination.svm_utils import train_svm
 from common.dimension_reduction import ReduceDims, Autoencoder, train, weights_init_uniform_rule, \
     VariationalAutoencoder, CustomLoss, train_vae
@@ -23,10 +26,15 @@ emb_type = config['discrimination']['emb_type']
 checkpoint_path = config['pretrained_model_details']['checkpoint_path']
 model_used = check_model_used(checkpoint_path)
 
+# data = load_baseline_feats(path='data/10_narrative_recall/x-vectors/xvecs-10_narrative_recall-sre16-mfcc23-aug.txt', delimiter=None)
+# data = load_baseline_feats(path='data/10_narrative_recall/compare/features.compare2016.rr45.10_narrative_recall.txt',
+#                            delimiter=',')
+
 if config['feature_combination']:
     data = load_joint_embs(config=config)
 else:
     data = load_data(config=config)  # loading data
+
 # bea_train_flat = load_data(config=config_bea)  # load bea embeddings
 df_labels = pd.read_csv(label_file)  # loading labels
 data['label'] = df_labels.label.values  # adding labels to data
@@ -144,7 +152,7 @@ else:
 # Train SVM
 print("Using", config['discrimination']['emb_type'])
 list_c = [1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 0.1]
-df = pd.DataFrame(columns=['c', 'acc', 'f1', 'prec', 'recall', 'auc'])
+df = pd.DataFrame(columns=['c', 'acc', 'f1', 'prec', 'recall', 'auc', 'eer'])
 
 for c in list_c:
     # TRY ALSO MLP OR KNN!!!!
@@ -158,15 +166,17 @@ for c in list_c:
     f1 = f1_score(array_trues, array_preds)
     prec = precision_score(array_trues, array_preds)
     rec = recall_score(array_trues, array_preds)
+    eer = calculate_eer(array_trues, array_preds)
     # data = {'c': c, 'acc': acc, 'f1': f1, 'prec': prec, 'recall': rec, 'auc': auc}
-    dict_metrics = {'c': c, 'acc': acc, 'f1': f1, 'prec': prec, 'recall': rec, 'auc': auc, 'Embedding': emb_type,
+    dict_metrics = {'c': c, 'acc': acc, 'f1': f1, 'prec': prec, 'recall': rec, 'auc': auc, 'EER': eer, 'Embedding': emb_type,
             'Reduction technique': '{0}-{1}'.format(dim_reduction, str(size_reduced)), 'Model used': model_used,
             'std': str(scaler_type), 'n_epochs': n_epochs, 'variance': variance}
     df = df.append(dict_metrics, ignore_index=True)
 
-    print("with", c, "acc:", acc, " f1:", f1, " prec:", prec, " recall:", rec, 'AUC:', auc)#, 'auc-c0:', aucs[1],
+    print("with", c, "acc:", acc, " f1:", f1, " prec:", prec, " recall:", rec, 'AUC:', auc, 'EER', eer)#, 'auc-c0:', aucs[1],
           # 'auc-c1:', aucs[2])
 
 # Saving results3
 best_scores_df = df.iloc[[df['auc'].idxmax()]]  # getting the best scores based on the highest AUC score.
-best_scores_df.to_csv(output_results, mode='a', header=not os.path.exists(output_results), index=False)
+# best_scores_df.to_csv(output_results, mode='a', header=not os.path.exists(output_results), index=False)
+print(best_scores_df.values)

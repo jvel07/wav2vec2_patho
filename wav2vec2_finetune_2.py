@@ -117,9 +117,9 @@ if task=="Vocalisation":
         trust_remote_code=True,
         cache_dir = "/scratch/elec/puhe/p/getmany1/cache"
     )
-    model.config.id2label= None
-    model.config.label2id= None
-    model.config.num_labels=6
+    model.config.id2label = None
+    model.config.label2id = None
+    model.config.num_labels = 6
     model.classifier=torch.nn.Linear(in_features=256, out_features=6, bias=True)
 
 elif task=="Stuttering":
