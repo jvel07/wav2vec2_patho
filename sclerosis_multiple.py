@@ -157,6 +157,7 @@ df = pd.DataFrame(columns=['c', 'acc', 'f1', 'prec', 'recall', 'auc', 'eer'])
 for c in list_c:
     # TRY ALSO MLP OR KNN!!!!
     array_preds, array_trues, array_probs = train_svm(svm_type='linear-loocv', C=c, X=x_train, y=np.ravel(y_train))
+    # array_preds, array_trues, array_probs = train_svm(svm_type='rbf-loocv', C=c, X=x_train, y=y_train)
 
     acc = accuracy_score(array_trues, array_preds)
     # auc = roc_auc_score(array_trues, array_probs, labels=np.unique(y_train))
