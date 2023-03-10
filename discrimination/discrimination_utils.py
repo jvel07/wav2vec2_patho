@@ -6,15 +6,23 @@ from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_compl
 
 import numpy as np
 import torch
+from scipy.stats import stats
 from sklearn import preprocessing
 from sklearn.decomposition import PCA, TruncatedSVD
 from sklearn.metrics import recall_score, roc_auc_score
 from sklearn.utils import shuffle
 # from imblearn.under_sampling import RandomUnderSampler
 import pandas as pd
+from torch import nn
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
+import torch
+import torch.optim as optim
+from torch.utils.data import DataLoader
+
+from common.dimension_reduction import VariationalAutoencoder, weights_init_uniform_rule, CustomLoss, train_vae, \
+    Autoencoder, train
 # from common import results_to_csv
 from discrimination.svm_utils import train_svm
 
@@ -37,6 +45,7 @@ def roc_auc_score_multiclass(actual_class, pred_class, average="macro"):
         roc_auc_dict[per_class] = roc_auc
 
     return roc_auc_dict
+
 
 # Pooling types
 def global_max_pooling(data):
@@ -107,8 +116,7 @@ def load_data_old(task, list_datasets, list_labels, emb_type):
         dict_data['y_' + item], enc = encode_labels(df_labels.label.values, list_labels)
     print("Data loaded!")
     return dict_data['x_train'], dict_data['x_dev'], dict_data['x_test'], dict_data['y_train'], dict_data['y_dev'], \
-           dict_data['y_test']
-
+        dict_data['y_test']
 
 
 def check_model_used(checkpoint_path):
@@ -130,7 +138,8 @@ def load_data(config):
     model_used = check_model_used(checkpoint_path)
 
     # model_used = config['pretrained_model_details']['checkpoint_path'].split('/')[-2]
-    path_embs = os.path.join(config['paths']['out_embeddings'], model_used + '/') #config['discrimination']['emb_type']+'/')
+    path_embs = os.path.join(config['paths']['out_embeddings'],
+                             model_used + '/')  # config['discrimination']['emb_type']+'/')
 
     list_file_embs = glob.glob('{0}*.npy'.format(path_embs))
     if len(list_file_embs) == 0:
@@ -140,7 +149,7 @@ def load_data(config):
     print(path_embs)
     print("{0} files found in {1}".format(len(list_file_embs), path_embs))
     list_arr_embs = []
-    if 'flat' in path_embs:
+    if 'flat' in path_embs: # check if flatbea...
         size_bea = int(config['size_bea'])
         list_file_embs = list_file_embs[0:size_bea]
     for file in tqdm(list_file_embs, total=len(list_file_embs)):
@@ -210,11 +219,9 @@ class LoadMulti:
             print('Done')
 
 
-
-
 # Train and test function
 def train_test_pooling(task, list_labels, list_datasets, emb_type, std=True, resample=False, pca=False, svd=False,
-               save_res=True, svm_type='linear', pooling_type='mean'):
+                       save_res=True, svm_type='linear', pooling_type='mean'):
     # Load data
     x_train, x_dev, x_test, y_train, y_dev, y_test = load_data(task=task, list_datasets=list_datasets,
                                                                emb_type=emb_type, list_labels=list_labels)
@@ -464,3 +471,89 @@ def load_joint_embs(config):
     return data
 
 
+
+
+
+def reduce_dimensions_vae(x_train, bea_train_flat, config):
+    print(f"\nReducing dimensions using Variational Autoencoder. Initial shape: {x_train.shape}")
+    device = ('cuda' if torch.cuda.is_available() else 'cpu')
+    n_epochs = config['dimension_reduction']['autoencoder']['num_epochs']
+    log_interval = 50
+
+    # converting data into dataloader (needed for training)
+    data_set = DataBuilder(bea_train_flat)
+    train_loader = DataLoader(dataset=data_set, batch_size=32)
+    train_data = DataBuilder(x_train)
+    x_loader = DataLoader(dataset=train_data, batch_size=32)
+
+    # define params
+    D_in = data_set.x.shape[1]
+    H = 50
+    H2 = 12
+    latent_dim = config['dimension_reduction']['autoencoder']['encoder_size']  # output size of the reduced embs
+    model = VariationalAutoencoder(D_in, latent_dim, H, H2).to(device)
+    model.apply(weights_init_uniform_rule)
+    optimizer = optim.Adam(model.parameters(), lr=1e-3)
+    loss_mse = CustomLoss()
+
+    # train
+    print("Training the Variational Autoencoder...")
+    for epoch in range(1, n_epochs + 1):
+        model_trained = train_vae(model, train_loader, epoch, device, optimizer, loss_mse, config)
+
+    #  Reducing dimensions of x_train
+    mu_output = []
+    with torch.no_grad():
+        for i, data in enumerate(x_loader):
+            data = data.to(device)
+            optimizer.zero_grad()
+            recon_batch, mu, logvar = model_trained(data)
+
+            mu_tensor = mu
+            mu_output.append(mu_tensor)
+            mu_result = torch.cat(mu_output, dim=0)
+
+    size_reduced = mu_result.shape[1]
+    print("New encoded shape:", mu_result.shape)
+    x_train = mu_result.detach().cpu().numpy()
+
+    return x_train
+
+
+def reduce_dimensions_basic_autoencoder(x_train, config):
+    print("\nReducing dimensions using a basic Autoencoder. Initial shape: {}".format(x_train.shape))
+    device = ('cuda' if torch.cuda.is_available() else 'cpu')
+
+    n_epochs = config['dimension_reduction']['autoencoder']['num_epochs']
+    enc_shape = config['dimension_reduction']['autoencoder']['encoder_size']
+
+    x_train = x_train.double().to(device)
+
+    encoder = Autoencoder(in_shape=x_train.shape[1], enc_shape=enc_shape).double()
+    error = nn.MSELoss()
+    optimizer = optim.Adam(encoder.parameters())
+    train(encoder, error, optimizer, n_epochs, x_train)
+
+    # reducing the dimensions
+    with torch.no_grad():
+        encoded = encoder.encode(x_train)
+        x_train = encoded.cpu().detach().numpy()
+
+    size_reduced = x_train.shape[1]
+    print("New encoded shape:", x_train.shape)
+
+    return x_train
+
+
+def feat_selection_spearman(x, y, keep_feats):
+    corr_list = []
+    for idx_column_feature in range(len(x[1])):
+        corr, _ = stats.pearsonr(y, x[:, idx_column_feature])  # take corr
+        # print("y", y.shape)
+        # print("x", x[:, idx_column_feature].shape)
+        corr_list.append(abs(corr))  # collect the corr (abs) values
+    ordered_asc = sorted(corr_list, reverse=True)  # sort desc the corr list
+    min_corr = ordered_asc[0:keep_feats]  # pick n most correlating # min_corr = # n higher correlated
+    indices = [index for index, item in enumerate(corr_list) if
+               item in set(min_corr)]  # take the indices that correspond to the min_corr values in the corr_list
+    return indices

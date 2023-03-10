@@ -13,8 +13,8 @@ pretrained_model_details:
 
 #  checkpoint_path: '/media/jvel/data/audio/Bea-base/beast-xls-r-300m_v0.1/beast-xls-r-300m/checkpoint'
 
-#  checkpoint_path: 'facebook/wav2vec2-large-xlsr-53'
-  checkpoint_path: 'jonatasgrosman/wav2vec2-large-xlsr-53-hungarian'
+  checkpoint_path: 'facebook/wav2vec2-large-xlsr-53'
+#  checkpoint_path: 'jonatasgrosman/wav2vec2-large-xlsr-53-hungarian'
 #  checkpoint_path: 'speechbrain/spkrec-ecapa-voxceleb'
 
 #  checkpoint_path: 'facebook/wav2vec2-base-960h'
@@ -31,12 +31,12 @@ paths:
   to_save_metadata: 'data/depression/'
 #  audio_path: '/srv/data/egasj/corpora/SM/10_narrative_recall/'
 #  audio_path: '/home/user/Documents/corpora/SM/10_narrative_recall/'
-  audio_path: '/media/jvel/data/audio/DEPISDA_16k/'
+  audio_path: '/media/jvel/data/audio/DEPISDA_16k'
   out_embeddings: 'data/depression/embeddings/'
   output_results: 'data/depression/results/experiments.csv'
 
 feature_combination: False
-sampling_rate: 44100
+sampling_rate: 16000
 # This is read from ../sclerosis_multiple.py
 discrimination:
   emb_type: 'hiddens'

@@ -1,8 +1,10 @@
 import numpy as np
 import sklearn as sk
 from dwd.socp_dwd import DWD
+from scipy.stats import stats
 from sklearn import svm, preprocessing
 from sklearn.model_selection import LeaveOneOut
+
 
 
 def standardize_data_jo(x_train, x_test):
@@ -89,14 +91,55 @@ def train_loocv_dwd(x, y, c):
 
 
 
+def feat_selection_spearman(x, y, keep_feats):
+    corr_list = []
+    for idx_column_feature in range(len(x[1])):
+        corr, _ = stats.pearsonr(y, x[:, idx_column_feature])  # take corr
+        # print("y", y.shape)
+        # print("x", x[:, idx_column_feature].shape)
+        corr_list.append(abs(corr))  # collect the corr (abs) values
+    ordered_asc = sorted(corr_list, reverse=True)  # sort desc the corr list
+    min_corr = ordered_asc[0:keep_feats]  # pick n most correlating # min_corr = # n higher correlated
+    indices = [index for index, item in enumerate(corr_list) if
+               item in set(min_corr)]  # take the indices that correspond to the min_corr values in the corr_list
+    return indices
+
+
+def loocv_NuSVR_cpu_pearson(X, Y, c, kernel, keep_feats, feat_selection=False):
+    svc = svm.NuSVR(kernel=kernel, C=c, verbose=0, max_iter=100000)
+    loo = LeaveOneOut()
+
+    array_preds = np.zeros((len(Y),))
+    list_trues = np.zeros((len(Y),))
+
+    for train_index, test_index in loo.split(X=X):
+        x_train, x_test = X[train_index], X[test_index]
+        y_train, y_test = Y[train_index], Y[test_index]
+        # doing feature selection based on the most correlated features
+        if feat_selection:
+            selected_idx_train = feat_selection_spearman(x_train, y_train, keep_feats)
+            x_train = x_train[:, selected_idx_train]
+            x_test = x_test[:, selected_idx_train]
+            # keepfeats = find(corr >= min_corr)
+            # print(x_train_selected.shape)
+
+        svc.fit(x_train, y_train)
+        pred = svc.predict(x_test)
+        array_preds[test_index] = pred
+        list_trues[test_index] = y_test
+
+    return array_preds, list_trues
+
+
 # Classifier switcher
-def train_svm(svm_type, C, X, y, X_eval=None):
+def train_svm(svm_type, C, X, y, X_eval=None, **kwargs):
     switcher = {
         'linear': lambda: train_linearsvm_cpu(X, y, X_eval, C),
         # 'linear-gpu': lambda: train_linearsvm_gpu(X, y, X_eval, C),
         'rbf': lambda: train_RBF_cpu(X, y, X_eval, C),
         'linear-loocv': lambda: train_loocv_svm(X, y, C),
-        'rbf-loocv': lambda: train_loocv_dwd(X, y, C)
+        'rbf-loocv': lambda: train_loocv_dwd(X, y, C),
+        'nusvr-loocv': lambda: loocv_NuSVR_cpu_pearson(X, y, C, **kwargs)
     }
     return switcher.get(svm_type, lambda: "Error {} is not an option! Choose from: \n {}.".format(svm_type,
                                                                                                   switcher.keys()))()

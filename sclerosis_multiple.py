@@ -16,7 +16,7 @@ from discrimination.svm_utils import train_svm
 from common.dimension_reduction import ReduceDims, Autoencoder, train, weights_init_uniform_rule, \
     VariationalAutoencoder, CustomLoss, train_vae
 
-config = utils.load_config('config/config_sm.yml')  # loading configuration
+config = utils.load_config('config/config_depression.yml')  # loading configuration
 # config_bea = utils.load_config('config/config_bea16k.yml')  # loading configuration for bea dataset (PCA, std)
 shuffle_data = config['shuffle_data']  # whether to shuffle the training data
 label_file = config['paths']['to_labels']  # path to the labels of the dataset
@@ -38,6 +38,7 @@ else:
 # bea_train_flat = load_data(config=config_bea)  # load bea embeddings
 df_labels = pd.read_csv(label_file)  # loading labels
 data['label'] = df_labels.label.values  # adding labels to data
+
 # Shuffling data if needed
 if shuffle_data:
     data = data.sample(frac=1).reset_index(drop=True)
@@ -128,7 +129,7 @@ elif dim_reduction == 'vae':
     # train
     print("Training the Variational Autoencoder...")
     for epoch in range(1, n_epochs+1):
-        model_trained = train_vae(model, train_loader, epoch, device, optimizer, loss_mse, config_bea)
+        model_trained = train_vae(model, train_loader, epoch, device, optimizer, loss_mse, config)
 
     #  Reducing dimensions of x_train
     mu_output = []
@@ -136,7 +137,7 @@ elif dim_reduction == 'vae':
         for i, data in enumerate(x_loader):
             data = data.to(device)
             optimizer.zero_grad()
-            recon_batch, mu, logvar = model(data)
+            recon_batch, mu, logvar = model_trained(data)
 
             mu_tensor = mu
             mu_output.append(mu_tensor)

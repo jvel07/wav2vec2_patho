@@ -4,6 +4,8 @@ import numpy as np
 import torch
 from speechbrain.pretrained.interfaces import Pretrained
 from speechbrain.pretrained import EncoderClassifier
+from tqdm import tqdm
+
 # import more_itertools as mit
 
 from common import utils
@@ -310,26 +312,24 @@ def extract_embeddings_and_save(dataset_list, feature_extractor, model, chunk_si
     frame_step = chunk_size * sampling_rate
 
     # Iterating datasets
-    for index, dataset in enumerate(
-            dataset_list):  # this for is just in case of the existence of 'dev', 'test' datasets
-        list_convs = []
-        list_hiddens = []
-
-        print("Computing general features using Feature Extractor...")
+    for index, dataset in enumerate(dataset_list):  # this for is just in case of the existence of 'dev', 'test' datasets
+        # print("Computing general features using Feature Extractor...")
         # tot_input_values = feature_extractor(dataset['speech'], return_tensors="pt", padding=True,
         #                                      feature_size=1, sampling_rate=sampling_rate)
 
         # iterating utterances
         if len(dataset) < 1:
             os.sys
-        for i in range(0, len(dataset)):
-            print("iteration started")
+        # for i in range(0, len(dataset)):
+        for i in (pbar := tqdm(range(0, len(dataset)), desc="Extracting Embeddings", position=0)):
             list_current_utterance_convs = []
             list_current_utterance_hiddens = []
 
             # getting the i utterance
             utterance = dataset[i]["speech"]
-            print("Processing utterance {}...".format(i))
+            utterance_name = os.path.basename(dataset[i]['file']).split(".")[0]
+            # print("Processing utterance {}...".format(i))
+            pbar.set_description("Processing utterance {}".format(utterance_name))
 
             # iterating frames of the utterance
             for frame in range(0, len(utterance), frame_step):
@@ -354,31 +354,30 @@ def extract_embeddings_and_save(dataset_list, feature_extractor, model, chunk_si
                     #                         torch.unsqueeze(tot_input_values.attention_mask[i][current_segment], dim=0))
 
                 # extract features from the last CNN layer
-                segment_convs = outputs_segment.extract_features.detach().numpy()
-                list_current_utterance_convs.append(segment_convs)
+                # segment_convs = outputs_segment.extract_features.detach().numpy()
+                # list_current_utterance_convs.append(segment_convs)
 
                 # extract features corresponding to the sequence of last hidden states
                 segment_hidden = outputs_segment.last_hidden_state.detach().numpy()
                 list_current_utterance_hiddens.append(segment_hidden)
 
             # accumulating each wav into a list
-            current_utterance_convs = np.concatenate(list_current_utterance_convs, axis=1)
-            current_utterance_convs_pooled = np.squeeze(np.mean(current_utterance_convs, axis=1))
+            # current_utterance_convs = np.concatenate(list_current_utterance_convs, axis=1)
+            # current_utterance_convs_pooled = np.squeeze(np.mean(current_utterance_convs, axis=1))
             # print(current_utterance_convs_pooled.shape)
 
             current_utterance_hiddens = np.concatenate(list_current_utterance_hiddens, axis=1)
             current_utterance_hidden_pooled = np.squeeze(np.mean(current_utterance_hiddens, axis=1))
 
             # defining paths and saving
-            utterance_name = os.path.basename(dataset[i]['file']).split(".")[0]
             path_embs = config['paths']['out_embeddings'] + model_used
             os.makedirs(path_embs, exist_ok=True)
             file_convs = "{0}/convs_wav2vec2_{1}".format(path_embs, utterance_name)
             file_hiddens = "{0}/hiddens_wav2vec2_{1}".format(path_embs, utterance_name)
-            np.save(file_convs, current_utterance_convs_pooled)
+            # np.save(file_convs, current_utterance_convs_pooled)
             np.save(file_hiddens, current_utterance_hidden_pooled)
-            print(
-                "Utterance embeddings (convs and hidden states) saved to {} and \n {}".format(file_convs, file_hiddens))
+            # print("Utterance embeddings (convs and hidden states) saved to {} and \n {}".format(file_convs, file_hiddens))
+            pbar.set_description("Embeddings saved to {}".format(file_hiddens))
             # print("/n With shapes {}, and {}, respectively.".format(current_utterance_convs_pooled.shape, current_utterance_hidden_pooled.shape))
 
 
