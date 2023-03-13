@@ -13,7 +13,7 @@ pretrained_model_details:
 
 #  checkpoint_path: '/media/jvel/data/audio/Bea-base/beast-xls-r-300m_v0.1/beast-xls-r-300m/checkpoint'
 
-  checkpoint_path: 'facebook/wav2vec2-large-xlsr-53'
+#  checkpoint_path: 'facebook/wav2vec2-large-xlsr-53'
 #  checkpoint_path: 'jonatasgrosman/wav2vec2-large-xlsr-53-hungarian'
 #  checkpoint_path: 'speechbrain/spkrec-ecapa-voxceleb'
 
@@ -23,7 +23,7 @@ pretrained_model_details:
 #  checkpoint_path: 'm3hrdadfi/wav2vec2-xlsr-greek-speech-emotion-recognition'
 #  checkpoint_path: 'm3hrdadfi/wav2vec2-xlsr-persian-speech-emotion-recognition'
 #  checkpoint_path: 'facebook/wav2vec2-xls-r-300m'
-#  checkpoint_path: 'facebook/wav2vec2-xls-r-1b'
+  checkpoint_path: 'facebook/wav2vec2-xls-r-1b'
 #  checkpoint_path: 'facebook/data2vec-audio-base-960h'
 paths:
 #  to_labels: 'data/10_narrative_recall/labels_maci.csv'
@@ -62,4 +62,4 @@ data_scaling:
 #  scaling_model_path: "data/bea-base-train-flat/dim_red/train_flat" #.pkl
   scaling_model_path: "data/bea-base-train-flat/dim_red/compare_func_xv" #.pkl
    # "minmax" "standard" "robust" "normalizer" null
-  scaler_type: "standard"
+  scaler_type: "robust"

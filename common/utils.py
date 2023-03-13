@@ -1,4 +1,6 @@
+import collections
 import csv
+import itertools
 
 import librosa
 import torch
@@ -18,7 +20,20 @@ from yaml import SafeLoader
 from tqdm import tqdm
 import pickle as pk
 
-from discrimination.discrimination_utils import load_data, check_model_used
+# from discrimination.discrimination_utils import load_data, check_model_used
+
+
+def check_model_used(checkpoint_path):
+    if "jonatasgrosman" in checkpoint_path:
+        model_used = checkpoint_path.split('/')[-1]
+    elif "facebook" in checkpoint_path:
+        model_used = checkpoint_path.split('/')[-1]
+    elif "yangwang825" in checkpoint_path:
+        model_used = checkpoint_path.split('/')[-1]
+    else:
+        model_used = checkpoint_path.split('/')[-2]
+
+    return model_used
 
 
 def load_config(path_yaml):
@@ -416,5 +431,59 @@ class DataBuilder(Dataset):
         return self.len
 
 
+def count_chars(file_path):
+    with open(file_path, 'r') as f:
+        # Use itertools.chain.from_iterable to flatten the list of lines into a single string
+        full_text = ''.join(itertools.chain.from_iterable(f))
+        text_no_white_spaces = ''.join(full_text.split())
+        # Use collections.Counter to count the occurrence of each character
+        # char_counts = collections.Counter(text)
+
+        return len(full_text), len(text_no_white_spaces)
 
 
+def create_csv_speech_tempo(in_path, out_file, size):
+    """Function to create csv file for singing corpus with labels of the form:
+    37+2/length wav ==> target
+    31/len ==> target
+    csv for
+    """
+
+    if not os.path.exists(os.path.dirname(out_file)):
+        os.makedirs(os.path.dirname(out_file))
+
+    # reading directories
+    bea_train_path = os.path.join(in_path, 'bea-base-train-flat')
+    transcriptions_list = glob.glob('{}/*.txt'.format(bea_train_path))
+    transcriptions_list.sort()
+    wavs_list = glob.glob('{}/*.wav'.format(bea_train_path))
+    wavs_list.sort()
+
+    df = pd.DataFrame(columns=['wav_path', 'name', 'whole_speech', 'no_pause_speech', 'length'])
+
+    for transcription, utterance in tqdm(zip(transcriptions_list[0:size], wavs_list[0:size]), total=len(transcriptions_list[0:size])):  #
+        file_name = os.path.basename(utterance).split('.')[0]
+        # check wav length
+        wav, sr = sf.read(utterance)
+        wav_length = len(wav)
+        # print(sr)
+
+        # check text length
+        number_total_chars, with_no_spaces = count_chars(transcription)
+        # print(number_total_chars, with_no_spaces, wav_length)
+
+        # compute speech temporal params
+        whole_speech = (number_total_chars + 2) / wav_length
+        no_pause_speech = with_no_spaces / wav_length
+
+
+        # define python dict
+        data = {'wav_path': utterance, 'name': file_name, 'whole_speech': whole_speech,
+                'no_pause_speech': no_pause_speech, 'length': wav_length/sr}
+        # df = df.append(data, ignore_index=True)    # append new data to the librimix csv
+        df = df.append(data, ignore_index=True)    # append new data to the librimix csv
+    df.to_csv(out_file, sep=',', index=False)
+    print("Data saved to {}".format(out_file))
+
+
+create_csv_speech_tempo('/media/jvel/data/audio/Bea-base/', './test.csv', 5000)

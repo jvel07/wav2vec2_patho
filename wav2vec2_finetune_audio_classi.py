@@ -53,9 +53,10 @@ config = AutoConfig.from_pretrained(
     id2label={i: label for i, label in enumerate(label_list)},
     finetuning_task="wav2vec2_clf",
 )
-setattr(config, 'pooling_mode', pooling_mode)
 
-processor = Wav2Vec2Processor.from_pretrained(model_name_or_path)
+setattr(config, 'pooling_mode', 'mean')
+
+processor = Wav2Vec2Processor.from_pretrained(model_name)
 target_sampling_rate = processor.feature_extractor.sampling_rate
 print(f"The target sampling rate: {target_sampling_rate}")
 

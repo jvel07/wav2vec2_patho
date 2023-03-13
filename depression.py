@@ -12,7 +12,7 @@ import pandas as pd
 
 from common.metrics import calculate_eer, calculate_sensitivity_specificity
 from discrimination.discrimination_utils import load_data, roc_auc_score_multiclass, check_model_used, load_joint_embs, \
-    load_baseline_feats, reduce_dimensions_vae, reduce_dimensions_basic_autoencoder
+    load_baseline_feats, reduce_dimensions_vae, reduce_dimensions_basic_autoencoder, fill_missing_values
 from discrimination.svm_utils import train_svm
 from common.dimension_reduction import ReduceDims, Autoencoder, train, weights_init_uniform_rule, \
     VariationalAutoencoder, CustomLoss, train_vae
@@ -38,7 +38,12 @@ else:
 
 # bea_train_flat = load_data(config=config_bea)  # load bea embeddings
 df_labels = pd.read_csv(label_file)  # loading labels
-data['label'] = df_labels.label.values  # adding labels to data
+# checking for missing values
+# healthy missing values where handled by KNN based on columns sex, smoke, age, and BDI
+if df_labels['BDI'].isna().any():
+    df_labels = fill_missing_values(df_labels)
+
+data['label'] = df_labels.BDI.values  # adding labels to data
 
 # Shuffling data if needed
 if shuffle_data:
@@ -92,7 +97,7 @@ else:
 # Train SVM
 print("Using", config['discrimination']['emb_type'])
 list_c = [1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 0.1]
-df = pd.DataFrame(columns=['c', 'pearsons', 'uar', 'spec', 'sens', 'auc', 'F1', 'RMSE'])
+df = pd.DataFrame(columns=['c', 'pearson', 'uar', 'spec', 'sens', 'auc', 'F1', 'RMSE'])
 
 corr_scores = []
 uar_scores = []

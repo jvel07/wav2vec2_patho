@@ -12,7 +12,7 @@ from common import utils
 
 # Loading configuration
 # config = utils.load_config('config/config_bea16k.yml')  # provide the task's yml
-config = utils.load_config('config/config_sm.yml')
+config = utils.load_config('config/config_depression.yml')
 model_name = config['pretrained_model_details']['checkpoint_path']
 task = config['task']  # name of the dataset
 audio_path = config['paths']['audio_path']  # path to the audio files of the task

@@ -3,12 +3,14 @@ import glob
 import os
 import sys
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
+from fancyimpute import KNN
 
 import numpy as np
 import torch
 from scipy.stats import stats
 from sklearn import preprocessing
 from sklearn.decomposition import PCA, TruncatedSVD
+from sklearn.impute import KNNImputer
 from sklearn.metrics import recall_score, roc_auc_score
 from sklearn.utils import shuffle
 # from imblearn.under_sampling import RandomUnderSampler
@@ -557,3 +559,32 @@ def feat_selection_spearman(x, y, keep_feats):
     indices = [index for index, item in enumerate(corr_list) if
                item in set(min_corr)]  # take the indices that correspond to the min_corr values in the corr_list
     return indices
+
+
+def fill_missing_values(df):
+    print("Filling missing values with the mean of the column")
+
+    # binarize categories for KNN training
+    gender_map = {'M': 1, 'F': 0}
+    smoke_map = {'yes': 1, 'no': 0}
+    df.replace({'Sex': gender_map, 'Smoke': smoke_map}, inplace=True)
+
+    # Create a copy of the dataframe
+    healthy_df = df[(df['BDI'].isnull())]
+
+    # Split the filtered dataframe into features and target
+    features = healthy_df.drop(['BDI', 'ID', 'file'], axis=1)
+    target = healthy_df['BDI']
+
+    # Use KNN imputation to fill in the missing values in the target column based on the features
+    imputer = KNNImputer(n_neighbors=5)
+    target_imputed = imputer.fit_transform(features, target)
+
+    # Combine the imputed BDI values with the original BDI values
+    imputed_values = pd.Series(target_imputed.reshape(-1), index=target.index)
+    bdi_imputed = df['BDI'].fillna(imputed_values)
+
+    # Replace the original BDI column with the imputed BDI column in the original dataframe
+    df['BDI'] = bdi_imputed
+
+    return df
