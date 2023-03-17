@@ -273,6 +273,7 @@ class PreprocessFunction:
         return result
 
 
+
 class PreprocessFunctionASR:
     def __init__(self, processor, target_sampling_rate):
         self.processor = processor
@@ -283,6 +284,15 @@ class PreprocessFunctionASR:
         result = self.processor(speech_list, sampling_rate=self.target_sampling_rate)
         with self.processor.as_target_processor():
             result["labels"] = self.processor(samples["sentence"]).input_ids
+
+        return result
+
+    def preprocess_function_tempo(self, samples):
+        speech_list = [speech_to_array(path) for path in samples["path"]]
+        target_list = samples["whole_speech"]
+
+        result = self.processor(speech_list, sampling_rate=self.target_sampling_rate)
+        result["labels"] = list(target_list)
 
         return result
 
@@ -446,17 +456,17 @@ def create_csv_speech_tempo(in_path, out_file, size):
     """Function to create csv file for singing corpus with labels of the form:
     37+2/length wav ==> target
     31/len ==> target
-    csv for
+
     """
 
     if not os.path.exists(os.path.dirname(out_file)):
         os.makedirs(os.path.dirname(out_file))
 
     # reading directories
-    bea_train_path = os.path.join(in_path, 'bea-base-train-flat')
-    transcriptions_list = glob.glob('{}/*.txt'.format(bea_train_path))
+    # bea_train_path = os.path.join(in_path, 'bea-base-train-flat')
+    transcriptions_list = glob.glob('{}/*.txt'.format(in_path))
     transcriptions_list.sort()
-    wavs_list = glob.glob('{}/*.wav'.format(bea_train_path))
+    wavs_list = glob.glob('{}/*.wav'.format(in_path))
     wavs_list.sort()
 
     df = pd.DataFrame(columns=['wav_path', 'name', 'whole_speech', 'no_pause_speech', 'length'])
@@ -476,14 +486,14 @@ def create_csv_speech_tempo(in_path, out_file, size):
         whole_speech = (number_total_chars + 2) / wav_length
         no_pause_speech = with_no_spaces / wav_length
 
-
         # define python dict
         data = {'wav_path': utterance, 'name': file_name, 'whole_speech': whole_speech,
                 'no_pause_speech': no_pause_speech, 'length': wav_length/sr}
         # df = df.append(data, ignore_index=True)    # append new data to the librimix csv
         df = df.append(data, ignore_index=True)    # append new data to the librimix csv
     df.to_csv(out_file, sep=',', index=False)
-    print("Data saved to {}".format(out_file))
+    if os.path.isfile(out_file): print("Data saved to {}".format(out_file))
+    else: print("Error saving data to {}".format(out_file))
 
 
-create_csv_speech_tempo('/media/jvel/data/audio/Bea-base/', './test.csv', 5000)
+# create_csv_speech_tempo('/media/jvel/data/audio/Bea-base/', './test.csv', 5000)

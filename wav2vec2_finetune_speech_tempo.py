@@ -1,4 +1,4 @@
-from datasets import load_dataset, Dataset, load_metric, Audio, concatenate_datasets
+from datasets import load_dataset, Dataset, load_metric, Audio, concatenate_datasets, DownloadMode
 import torch
 from transformers import pipeline, AutoFeatureExtractor, AutoTokenizer, Wav2Vec2FeatureExtractor, Wav2Vec2Processor, \
     AutoModelForAudioClassification, TrainingArguments, Trainer, AutoProcessor
@@ -9,142 +9,113 @@ import pandas as pd
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import confusion_matrix, recall_score, accuracy_score
 
+from common import utils, create_csv_speech_tempo
 
-# https://github.com/aalto-speech/ComParE2022
+# example of increase in mean squared error
+from matplotlib import pyplot
+from sklearn.metrics import mean_squared_error
+
+
 def compute_metrics(eval_pred):
     """Computes accuracy on a batch of predictions"""
-    if "-superb-" in model_link:
-        predictions = np.argmax(eval_pred.predictions[0], axis=1)
+    if "-superb-" in model_name:
+        preds = np.argmax(eval_pred.predictions[0], axis=1)
     else:
-        predictions = np.argmax(eval_pred.predictions, axis=1)
-    recall = recall_metric.compute(predictions=predictions, references=eval_pred.label_ids, average="macro")
+        preds = np.argmax(eval_pred.predictions, axis=1)
+    # recall = recall_metric.compute(predictions=predictions, references=eval_pred.label_ids, average="macro")
     # f1 = f1_metric.compute(predictions=predictions, references=eval_pred.label_ids, average="macro")
     # return {"f1": f1, "spearmanr": spearmanr}
-    return recall
+    score = mean_squared_error(y_true=eval_pred.label_ids, y_pred=preds)
+    return score
 
 
-def prepare_example(example):
-    if '.FI0' in example["file"]:
-        example["speech"], example["sampling_rate"] = sf.read(example["file"], channels=1, samplerate=16000,
-                                                              format='RAW', subtype='PCM_16')
-    else:
-        example["audio"], example["sampling_rate"] = librosa.load(example["file"], sr=16000)
-    example["duration_in_seconds"] = len(example["audio"]) / 16000
-    return example
-
-
-def preprocess_function(examples):
-    audio_arrays = examples["audio"]
-    inputs = feature_extractor(
-        audio_arrays,
-        sampling_rate=feature_extractor.sampling_rate
-    )
-    return inputs
-
-
-def map_to_array(example):
-    speech, _ = librosa.load(example["file"], sr=16000, mono=True)
-    example["speech"] = speech
-    return example
-
-
-def map_to_pred(batch):
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    input_values = processor(batch["speech"], sampling_rate=16000, return_tensors="pt", padding="longest").input_values
-    with torch.no_grad():
-        logits = model_fi(input_values.to(device)).logits
-    predicted_ids = torch.argmax(logits, dim=-1)
-    batch["probs"] = torch.softmax(logits, dim=-1)
-    batch['predictions'] = predicted_ids
-    return batch
-
+# https://github.com/aalto-speech/ComParE2022
 
 freeze_feature_extractor = False
 freeze_transformer = False
-task = "Vocalisation"
-TRAIN_FINAL = False
 
-# model_checkpoint = "facebook/wav2vec2-base-10k-voxpopuli-ft-de"
-# model_checkpoint = "facebook/wav2vec2-large-west_germanic-voxpopuli-v2"
-model_checkpoint = "facebook/wav2vec2-large-xlsr-53"
-# model_checkpoint = "aware-ai/wav2vec2-xls-r-300m-german"
-# model_checkpoint = "aware-ai/wav2vec2-xls-r-1b-5gram-german"
-# model_checkpoint = "jonatasgrosman/wav2vec2-large-xlsr-53-german"
-# model_checkpoint = "facebook/wav2vec2-xls-r-2b"
-# model_checkpoint = "superb/wav2vec2-large-superb-er"
-# model_checkpoint = "Aniemore/wav2vec2-xlsr-53-russian-emotion-recognition"
-# model_checkpoint = "harshit345/xlsr-wav2vec-speech-emotion-recognition"
-# model_checkpoint = "superb/hubert-large-superb-er"
+config = utils.load_config('config/config_bea16k.yml')
 
-batch_size = 8
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-f1_metric = load_metric("f1")
-recall_metric = load_metric("recall")
-target_sr = 16000
-model_name = model_checkpoint.split("/")[-1]
+task = 'bea-base-train-flat'
+audio_base ='/srv/data/egasj/corpora/Bea_base/'
+size = 5000  # size of the sub-set of the data to use
+tempo_target = 'no_pause_speech'
+labels_train = 'data/{}/{}_train_{}.csv'.format(task, tempo_target, size)
+labels_dev = 'data/{}/{}_dev_{}.csv'.format(task, tempo_target, size)
 
-categories = {'surprise': 0, 'fear': 1, 'anger': 2, 'pleasure': 3, 'pain': 4, 'achievement': 5, '?': -1}
-path_to_recs = "/teamwork/t40511_asr/c/ComParE_2022/Vocalisation/dist/wav/"
-feature_extractor = AutoFeatureExtractor.from_pretrained(model_checkpoint,
-                                                         cache_dir="/scratch/elec/puhe/p/getmany1/cache")
+# getting tempo labels ready (do this for dev as well) --> uncomment if no csv files are available
+# create_csv_speech_tempo(in_path='{}bea-base-train-flat'.format(audio_base),
+#                         out_file=labels_train, size=size)
+# create_csv_speech_tempo(in_path='{}bea-base-dev-spont-flat'.format(audio_base),
+#                         out_file=labels_dev, size=size)
+
+# Loading the dataset into 'load_datasets' class
+data_files = {
+    'train': labels_train,
+    'validation': labels_dev
+}
+
+dataset = load_dataset('csv', data_files=data_files, delimiter=',', cache_dir=config['hf_cache_dir'],
+                        download_mode=DownloadMode['REUSE_DATASET_IF_EXISTS'])
+train_set = dataset['train']
+dev_set = dataset['validation']
+
+model_name = config['pretrained_model_details']['checkpoint_path']
+
+# define feature extractor
+feature_extractor = AutoFeatureExtractor.from_pretrained(model_name, cache_dir=config['hf_cache_dir'])
+
+processor = Wav2Vec2Processor.from_pretrained(model_name)
+
 
 try:
-    processor = AutoProcessor.from_pretrained(model_checkpoint, cache_dir="/scratch/elec/puhe/p/getmany1/cache")
+    processor = AutoProcessor.from_pretrained(model_name, cache_dir=config['hf_cache_dir'])
 except (OSError, ValueError) as e:
-    print(f"No tokenizer found for {model_checkpoint}")
+    print(f"No tokenizer found for {model_name}")
     processor = None
 
-label_base = "/teamwork/t40511_asr/c/ComParE_2022/Vocalisation/dist/lab"
-labels = pd.concat([pd.read_csv(f"{label_base}/{partition}.csv") for partition in ["train", "devel", "test"]])
-train_ids = pd.read_csv(f"{label_base}/train.csv").filename
-dev_ids = pd.read_csv(f"{label_base}/devel.csv").filename
-test_ids = pd.read_csv(f"{label_base}/test.csv").filename
 
-my_dict_train = {'file': [path_to_recs + item for item in train_ids],
-                 'label': [categories[labels[labels.filename == item].label.item()] for item in train_ids]}
-my_dict_dev = {'file': [path_to_recs + item for item in dev_ids],
-               'label': [categories[labels[labels.filename == item].label.item()] for item in dev_ids]}
+pp = utils.PreprocessFunctionASR(processor, target_sampling_rate=16000)
 
-if TRAIN_FINAL:
-    my_dict_train['file'] += my_dict_dev['file']
-    my_dict_train['label'] += my_dict_dev['label']
+train_set = train_set.map(
+    pp.preprocess_function_tempo,
+    batched=True,
+    batch_size=1,
+)
 
-my_dict_test = {'file': [path_to_recs + item for item in test_ids],
-                'label': [categories[labels[labels.filename == item].label.item()] for item in test_ids]}
-
-train_dataset = Dataset.from_dict(my_dict_train)
-dev_dataset = Dataset.from_dict(my_dict_dev)
-test_dataset = Dataset.from_dict(my_dict_test)
-
-train_dataset = train_dataset.map(prepare_example, remove_columns=['file'])
-dev_dataset = dev_dataset.map(prepare_example, remove_columns=['file'])
-test_dataset = test_dataset.map(prepare_example, remove_columns=['file'])
-
-train_dataset = train_dataset.map(preprocess_function, batched=True, batch_size=1)
-test_dataset = test_dataset.map(preprocess_function, batched=True, batch_size=1)
-dev_dataset = dev_dataset.map(preprocess_function, batched=True, batch_size=1)
+dev_set = dev_set.map(
+    pp.preprocess_function_tempo,
+    batched=True,
+    batch_size=1,
+)
 
 model = AutoModelForAudioClassification.from_pretrained(
-    model_checkpoint,
+    model_name,
     trust_remote_code=True,
-    cache_dir="/scratch/elec/puhe/p/getmany1/cache"
+    cache_dir=config['hf_cache_dir']
 )
 model.config.id2label = None
 model.config.label2id = None
-model.config.num_labels = 2 # 37+2/length wav ==> target; 31/len ==> target
-model.classifier = torch.nn.Linear(in_features=256, out_features=2, bias=True)
+# check speech_notebook/speech_tempo_labelling.ipynb to see how the labels where created.
+# ==>  thresholds = [0.00035, 0.0006, 0.0008, 0.0012]
+# == > labels = ['slow', 'mid-slow', 'normal', 'fast']
+model.config.num_labels = 4  # 37+2/length wav ==> target; 31/len ==> target
+model.classifier = torch.nn.Linear(in_features=256, out_features=4, bias=True)
+
 
 if freeze_feature_extractor:
     model.freeze_feature_extractor()
 if freeze_transformer:
     model.freeze_transformer()
 
+num_train_epochs = 10
+out_dir = '/srv/data/egasj/code/wav2vec2_patho_deep4/runs/{0}_{1}_{2}'.format(task, num_train_epochs, )
 args = TrainingArguments(
-    "/scratch/elec/puhe/p/getmany1/wav2vec2_compare_stuttering_base_unfrozen_cnn",
+    output_dir=out_dir,
     evaluation_strategy="epoch",
     save_strategy="epoch",
     learning_rate=3e-5,
-    per_device_train_batch_size=batch_size,
+    per_device_train_batch_size=8,
     gradient_accumulation_steps=1,
     per_device_eval_batch_size=1,
     num_train_epochs=10,
@@ -160,12 +131,12 @@ args = TrainingArguments(
 trainer = Trainer(
     model,
     args,
-    train_dataset=train_dataset,
-    eval_dataset=dev_dataset,
+    train_dataset=train_set,
+    eval_dataset=dev_set,
     tokenizer=feature_extractor,
     compute_metrics=compute_metrics,
 )
 trainer.train()
 
-predictions = trainer.predict(dev_dataset)
+predictions = trainer.predict(dev_set)
 print(compute_metrics(predictions))
