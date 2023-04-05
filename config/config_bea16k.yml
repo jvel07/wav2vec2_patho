@@ -10,8 +10,12 @@ pretrained_model_details:
 
 #  checkpoint_path: '/home/user/Documents/data/bea16k_hungarian/bea16k_3.0_hungarian/checkpoint-3390' # speakers
 #  checkpoint_path: '/home/user/Documents/data/bea16k_hungarian/bea16k_5.0_hungarian/checkpoint-5650' # speakers
-  checkpoint_path: 'jonatasgrosman/wav2vec2-large-xlsr-53-hungarian'
+#  checkpoint_path: 'jonatasgrosman/wav2vec2-large-xlsr-53-hungarian'
 #  checkpoint_path: 'facebook/wav2vec2-base-960h'
+
+  checkpoint_path: '/srv/data/egasj/code/wav2vec2_patho/runs/bea-base-train-flat_10.0_no_pause_speech/checkpoint-6000'
+
+
 #  checkpoint_path: 'facebook/wav2vec2-large-960h'
 #  checkpoint_path: 'facebook/wav2vec2-large-xlsr-53'
 #  checkpoint_path: 'jonatasgrosman/wav2vec2-large-xlsr-53-english'
@@ -23,15 +27,15 @@ pretrained_model_details:
 paths:
   to_labels: 'data/bea-base-train-flat/labels.csv'
   to_save_metadata: 'data/bea-base-train-flat/'
-#  audio_path: '/media/jvel/data/audio/Bea-base/bea-base-train-flat/'
-  audio_path: '/srv/data/egasj/corpora/Bea_base/bea-base-train-flat/'
+  audio_path: '/media/jvel/data/audio/Bea-base/bea-base-train-flat/'
+#  audio_path: '/srv/data/egasj/corpora/Bea_base/bea-base-train-flat/'
 #  audio_path: '/home/user/Documents/corpora/BEA-base/bea-base-train-flat/'
   out_embeddings: 'data/bea-base-train-flat/embeddings/'
 sampling_rate: 16000
 # This is read from ../sclerosis_multiple.py
 discrimination:
-#  emb_type: 'hiddens'
-  emb_type: 'convs'
+  emb_type: 'hiddens'
+#  emb_type: 'convs'
 shuffle_data: True
 dimension_reduction:
   method: None #'vae'  # pca, autoencoder (basic), vae (variational autoencoder)

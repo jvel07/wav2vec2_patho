@@ -1,9 +1,9 @@
 task: '10_narrative_recall'
 size_bea: 'all' #'15360' #'10240' # take a subset from the total 57548 files for each: wavs and txt
 
-#hf_cache_dir: '/srv/data/egasj/hf_cache/'
+hf_cache_dir: '/srv/data/egasj/hf_cache/'
 #hf_cache_dir: '/home/user/Documents/hf_cache/'
-hf_cache_dir: '/media/jvel/data/hf_cache/'
+#hf_cache_dir: '/media/jvel/data/hf_cache/'
 
 pretrained_model_details:
 #  checkpoint_path: '/srv/data/egasj/code/wav2vec2_patho/wav2vec2-large-xlsr-beaBase-20percent/checkpoint-51800'
@@ -15,7 +15,9 @@ pretrained_model_details:
 
 #  checkpoint_path: 'facebook/wav2vec2-large-xlsr-53'
 #  checkpoint_path: 'jonatasgrosman/wav2vec2-large-xlsr-53-hungarian'
-  checkpoint_path: 'speechbrain/spkrec-ecapa-voxceleb'
+#  checkpoint_path: 'speechbrain/spkrec-ecapa-voxceleb'
+
+  checkpoint_path: '/srv/data/egasj/code/wav2vec2_patho/runs/bea-base-train-flat_10.0_no_pause_speech/checkpoint-6000'
 
 #  checkpoint_path: 'facebook/wav2vec2-base-960h'
 #   checkpoint_path: 'facebook/wav2vec2-large-960h'

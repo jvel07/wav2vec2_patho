@@ -21,9 +21,9 @@ save_path = config['paths']['to_save_metadata']  # path to save the csv file con
 # size_bea = config['size_bea']
 
 # Generating labels (comment this if already generated)
-utils.create_csv_sm(in_path=audio_path, out_file=label_file) # sclerosis multiplie
+# utils.create_csv_sm(in_path=audio_path, out_file=label_file) # sclerosis multiplie
 # utils.create_csv_bea_base(corpora_path=audio_path, out_file=label_file) # BEA
-# utils.create_csv_depression(in_path=audio_path, out_file=label_file) # DESPISA (depression)
+utils.create_csv_depression(in_path=audio_path, out_file=label_file) # DESPISA (depression)
 
 
 # loading data

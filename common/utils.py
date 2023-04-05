@@ -5,10 +5,11 @@ import itertools
 import librosa
 import torch
 import yaml
-from datasets import Dataset
+from datasets import Dataset, load_metric
 from sklearn.model_selection import train_test_split
 import glob
 import os
+
 
 import numpy as np
 import pandas as pd
@@ -19,6 +20,7 @@ from transformers import EvalPrediction
 from yaml import SafeLoader
 from tqdm import tqdm
 import pickle as pk
+
 
 # from discrimination.discrimination_utils import load_data, check_model_used
 
@@ -217,6 +219,7 @@ def create_csv_sm(in_path, out_file):
     df.to_csv(out_file, sep=',', index=False)
     print("Data saved to {}".format(out_file))
 
+
 def create_csv_depression(in_path, out_file):
     """Function to create csv file for the Sclerosis Multiple Corpus with labels of the form:
     'file', 'label', 'etc...'
@@ -253,7 +256,7 @@ def label_to_id(label, label_list):
 
 def speech_to_array(path):
     speech, _ = sf.read(path)
-    #     batch["speech"] = speech
+    # batch["speech"] = speech
     return speech
 
 
@@ -265,13 +268,12 @@ class PreprocessFunction:
 
     def preprocess_function(self, samples):
         speech_list = [speech_to_array(path) for path in samples["path"]]
-        target_list = [label_to_id(label, self.label_list) for label in samples["label"]]
+        target_list = [label_to_id(label, self.label_list) for label in samples["speed"]]
 
         result = self.processor(speech_list, sampling_rate=self.target_sampling_rate)
         result["labels"] = list(target_list)
 
         return result
-
 
 
 class PreprocessFunctionASR:
@@ -289,12 +291,12 @@ class PreprocessFunctionASR:
 
     def preprocess_function_tempo(self, samples):
         speech_list = [speech_to_array(path) for path in samples["path"]]
-        target_list = samples["whole_speech"]
+        # target_list = samples["whole_speech"]
 
-        result = self.processor(speech_list, sampling_rate=self.target_sampling_rate)
-        result["labels"] = list(target_list)
+        input_values = self.processor(speech_list, sampling_rate=self.target_sampling_rate)
+        # result["labels"] = list(target_list)
 
-        return result
+        return input_values
 
     def prepare_dataset(self, batch):
         speech_list = [speech_to_array(path) for path in batch["file"]]
@@ -310,13 +312,21 @@ class PreprocessFunctionASR:
 def compute_metrics(p: EvalPrediction, is_regression=False):
     preds = p.predictions[0] if isinstance(p.predictions, tuple) else p.predictions
     preds = np.squeeze(preds) if is_regression else np.argmax(preds, axis=1)
-
+    # predictions = np.argmax(preds, axis=1)
     if is_regression:
         return {"mse": ((preds - p.label_ids) ** 2).mean().item()}
     else:
         return {"accuracy": (preds == p.label_ids).astype(np.float32).mean().item()}
+        # return {"accuracy":  accuracy_metric.compute(predictions=preds, references=p.label_ids)}
         # return {"uar": recall_score(p.label_ids, preds, labels=[1, 0], average='macro')}
 
+
+def compute_metrics_2(p: EvalPrediction):
+    preds = np.argmax(p.predictions, axis=-1)
+    # precision, recall, f1, _ = precision_recall_fscore_support(p.label_ids.flatten(), preds.flatten(), average='weighted', zero_division=0)
+    return {
+        'accuracy': (preds == p.label_ids).mean(),
+    }
 
 class ComputeMetricsASR:
     def __init__(self, processor, wer_metric):
@@ -469,9 +479,13 @@ def create_csv_speech_tempo(in_path, out_file, size):
     wavs_list = glob.glob('{}/*.wav'.format(in_path))
     wavs_list.sort()
 
-    df = pd.DataFrame(columns=['wav_path', 'name', 'whole_speech', 'no_pause_speech', 'length'])
+    if len(transcriptions_list) <= 0:
+        raise ValueError("No transcriptions found in the directory: {}".format(in_path))
 
-    for transcription, utterance in tqdm(zip(transcriptions_list[0:size], wavs_list[0:size]), total=len(transcriptions_list[0:size])):  #
+    df = pd.DataFrame(columns=['path', 'name', 'whole_speech', 'no_pause_speech', 'length'])
+
+    for transcription, utterance in tqdm(zip(transcriptions_list[0:size], wavs_list[0:size]),
+                                         total=len(transcriptions_list[0:size])):  #
         file_name = os.path.basename(utterance).split('.')[0]
         # check wav length
         wav, sr = sf.read(utterance)
@@ -487,13 +501,37 @@ def create_csv_speech_tempo(in_path, out_file, size):
         no_pause_speech = with_no_spaces / wav_length
 
         # define python dict
-        data = {'wav_path': utterance, 'name': file_name, 'whole_speech': whole_speech,
-                'no_pause_speech': no_pause_speech, 'length': wav_length/sr}
+        data = {'path': utterance, 'name': file_name, 'whole_speech': whole_speech,
+                'no_pause_speech': no_pause_speech, 'length': wav_length / sr}
         # df = df.append(data, ignore_index=True)    # append new data to the librimix csv
-        df = df.append(data, ignore_index=True)    # append new data to the librimix csv
+        df = df.append(data, ignore_index=True)  # append new data to the librimix csv
     df.to_csv(out_file, sep=',', index=False)
-    if os.path.isfile(out_file): print("Data saved to {}".format(out_file))
-    else: print("Error saving data to {}".format(out_file))
+    if os.path.isfile(out_file):
+        print("Data saved to {}".format(out_file))
+    else:
+        print("Error saving data to {}".format(out_file))
 
 
 # create_csv_speech_tempo('/media/jvel/data/audio/Bea-base/', './test.csv', 5000)
+
+class CustomSubset(Dataset):
+    r"""
+    Subset of a dataset at specified indices.
+
+    Arguments:
+        dataset (Dataset): The whole Dataset
+        indices (sequence): Indices in the whole set selected for subset
+        labels(sequence) : targets as required for the indices. will be the same length as indices
+    """
+
+    def __init__(self, dataset, indices, labels):
+        self.dataset = torch.utils.data.Subset(dataset, indices)
+        self.targets = labels
+
+    def __getitem__(self, idx):
+        image = self.dataset[idx][0]
+        target = self.targets[idx]
+        return (image, target)
+
+    def __len__(self):
+        return len(self.targets)

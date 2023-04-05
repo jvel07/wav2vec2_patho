@@ -1,43 +1,45 @@
 import os
 
+import torch
 from datasets import load_dataset, DownloadMode
-from transformers import AutoConfig, Wav2Vec2Processor, TrainingArguments, Trainer
+from torch.nn import CrossEntropyLoss
+from transformers import AutoConfig, Wav2Vec2Processor, TrainingArguments, Trainer, AutoModelForAudioClassification
 
 # in-house functions
 from common import utils, utils_fine_tune, crate_csv_bea_from_scp
 from common.utils_fine_tune import Wav2Vec2ForSpeechClassification
 
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 # os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb=860'
 
 # inspired by https://colab.research.google.com/github/m3hrdadfi/soxan/blob/main/notebooks/Emotion_recognition_in_Greek_speech_using_Wav2Vec2.ipynb#scrollTo=ZXVl9qW1Gw_-
 
 config = utils.load_config('config/config_sm.yml')
 
-task = '10_narrative_recall'
-audio_base ='/media/jvel/data/audio/SM/{}/'.format(task)
-labels = 'data/{}/labels.csv'.format(task)
-
-train_path = os.path.join(task, audio_base, 'train/')
-dev_path = os.path.join(task, audio_base, 'dev/')
-test_path = os.path.join(task, audio_base, 'test/')
-
-# save_path = 'data/labels/{}/'.format(task)
-scp_file = "/srv/data/egasj/corpora/labels/{}/wav.txt".format(task)
+task = 'bea-base-train-flat'
 
 # Getting data info ready
+save_path = '/srv/data/egasj/corpora/labels/{}/'.format(task)
+audio_path = "/srv/data/egasj/corpora/{}/".format(task)
+scp_file = "/srv/data/egasj/corpora/labels/{}/wav.txt".format(task)
 # crate_csv_bea_from_scp(scp_file=scp_file, out_path=save_path, train_split_data=0.85)
 
 # Loading the dataset into 'load_datasets' class
+size = 5000  # size of the sub-set of the data to use
+tempo_target = 'no_pause_speech'
+labels_train = 'data/{}/{}_train_{}.csv'.format(task, tempo_target, size)
+labels_dev = 'data/{}/{}_dev_{}.csv'.format(task, tempo_target, size)
 data_files = {
-    'train': labels,
+    'train': labels_train,
+    'validation': labels_dev
 }
 
 bea16k_set = load_dataset('csv', data_files=data_files, delimiter=',', cache_dir=config['hf_cache_dir'],
                           download_mode=DownloadMode['REUSE_DATASET_IF_EXISTS'])
 train_set = bea16k_set['train']
 val_set = bea16k_set['validation']
+print("Length of the training set: {}".format(len(train_set)))
 
 # Getting unique labels
 label_list = train_set.unique('label')
@@ -46,7 +48,7 @@ num_labels = len(label_list)
 
 # Configurations
 lang = 'english'
-model_name_or_path = "jonatasgrosman/wav2vec2-large-xlsr-53-{}".format(lang)
+model_name_or_path = 'jonatasgrosman/wav2vec2-large-xlsr-53-english'
 pooling_mode = "mean"
 
 config = AutoConfig.from_pretrained(
@@ -55,6 +57,9 @@ config = AutoConfig.from_pretrained(
     label2id={label: i for i, label in enumerate(label_list)},
     id2label={i: label for i, label in enumerate(label_list)},
     finetuning_task="wav2vec2_clf",
+    cache_dir=config['hf_cache_dir'],
+    problem_type='single_label_classification'
+    # loss=CrossEntropyLoss(),
 )
 setattr(config, 'pooling_mode', pooling_mode)
 
@@ -68,18 +73,18 @@ print("Generating the datasets...\n")
 # Preprocess data
 train_dataset = train_set.map(
     pp.preprocess_function,
-    batch_size=100,
+    batch_size=16,
     batched=True,
-    num_proc=16
+    num_proc=4
     # keep_in_memory=True
 )
 print("Train dataset generated successfully...\n")
 
 eval_dataset = val_set.map(
     pp.preprocess_function,
-    batch_size=100,
+    batch_size=16,
     batched=True,
-    num_proc=16
+    num_proc=4,
     # keep_in_memory=True
 )
 print("Validation dataset generated successfully...\n")
@@ -95,43 +100,38 @@ model = Wav2Vec2ForSpeechClassification.from_pretrained(
     model_name_or_path,
     config=config,
 )
+#
+# model = AutoModelForAudioClassification.from_pretrained(
+#     model_name_or_path,
+#     config=config,
+# )
+# model.classifier = torch.nn.Linear(in_features=256, out_features=4, bias=True)
 
 # Freeze CNN blocks
 model.freeze_feature_extractor()
 
 # Define trainers and train model
 
-epochs_list = [1.0, 3.0, 5.0]
+epochs_list = [5.0, 10.0]
 for num_train_epochs in epochs_list:
-    out_dir = '/srv/data/egasj/code/wav2vec2_patho_deep4/runs/{0}_{1}_{2}'.format(task, num_train_epochs, lang)
+    out_dir = '/srv/data/egasj/code/wav2vec2_patho_deep4/runs/{0}_{1}_{2}_{3}'.format(task, num_train_epochs, lang, tempo_target)
     training_args = TrainingArguments(
         output_dir=out_dir,
         # output_dir="/content/gdrive/MyDrive/wav2vec2-xlsr-greek-speech-emotion-recognition"
-        per_device_train_batch_size=8,
+        per_device_train_batch_size=4,
         per_device_eval_batch_size=4,
-        gradient_accumulation_steps=1,
+        gradient_accumulation_steps=2,
         evaluation_strategy="steps",
-        num_train_epochs=num_train_epochs,
-        fp16=False,
+        num_train_epochs=1.0,
+        fp16=True,
         save_steps=10,
         eval_steps=10,
         logging_steps=10,
-        learning_rate=5e-3,
+        learning_rate=1e-4,
         save_total_limit=2,
-        # use_ipex=True
     )
 
-    # trainer = utils_fine_tune.CTCTrainer(
-    #     model=model,
-    #     data_collator=data_collator,
-    #     args=training_args,
-    #     compute_metrics=utils.compute_metrics,
-    #     train_dataset=train_dataset,
-    #     eval_dataset=eval_dataset,
-    #     tokenizer=processor.feature_extractor,
-    # )
-
-    trainer = Trainer(
+    trainer = utils_fine_tune.CTCTrainer(
         model=model,
         data_collator=data_collator,
         args=training_args,
@@ -141,9 +141,15 @@ for num_train_epochs in epochs_list:
         tokenizer=processor.feature_extractor,
     )
 
+    # trainer = Trainer(
+    #     model=model,
+    #     data_collator=data_collator,
+    #     args=training_args,
+    #     compute_metrics=utils.compute_metrics,
+    #     train_dataset=train_dataset,
+    #     eval_dataset=eval_dataset,
+    #     tokenizer=processor.feature_extractor,
+    # )
+
     trainer.train()
     trainer.save_model(out_dir)
-
-
-if __name__ == '__main__':
-    train()

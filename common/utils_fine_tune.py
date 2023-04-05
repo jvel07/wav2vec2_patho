@@ -210,10 +210,13 @@ class CTCTrainer(Trainer):
         model.train()
         inputs = self._prepare_inputs(inputs)
 
+
         # if self.use_amp:
         #     with autocast():
         #         loss = self.compute_loss(model, inputs)
         # else:
+
+
         loss = self.compute_loss(model, inputs)
 
         if self.args.gradient_accumulation_steps > 1:
@@ -228,5 +231,6 @@ class CTCTrainer(Trainer):
         #     self.deepspeed.backward(loss)
         # else:
         loss.backward()
+        # loss.backward(torch.Tensor([1, 1])) # for multi gpu
 
-        return loss
+        return loss.detach()
