@@ -287,7 +287,7 @@ def extract_ecapa_original(dataset_list, model, config):
 ######### ECAPA END   #########
 
 
-def extract_embeddings_and_save(dataset_list, feature_extractor, model, chunk_size, config):
+def     extract_embeddings_and_save(dataset_list, feature_extractor, model, chunk_size, config):
     """Function to extract embeddings (convolutional features and hidden states) from a given wav2vec2 model
 
     :param chunk_size: int, Size of the chunks to take for each utterance.
@@ -350,8 +350,6 @@ def extract_embeddings_and_save(dataset_list, feature_extractor, model, chunk_si
                 # getting the outputs from the fine-tuned model
                 with torch.no_grad():
                     outputs_segment = model(input_values_segment.input_values, input_values_segment.attention_mask)
-                    # outputs_segment = model(torch.unsqueeze(tot_input_values.input_values[i][current_segment], dim=0),
-                    #                         torch.unsqueeze(tot_input_values.attention_mask[i][current_segment], dim=0))
 
                 # extract features from the last CNN layer
                 # segment_convs = outputs_segment.extract_features.detach().numpy()

@@ -31,9 +31,9 @@ paths:
 #  to_labels: 'data/10_narrative_recall/labels_maci.csv'
   to_labels: 'data/10_narrative_recall/labels.csv' # jvel PC
   to_save_metadata: 'data/10_narrative_recall/'
-#  audio_path: '/srv/data/egasj/corpora/SM/10_narrative_recall/'
+  audio_path: '/srv/data/egasj/corpora/SM/10_narrative_recall/'
 #  audio_path: '/home/user/Documents/corpora/SM/10_narrative_recall/'
-  audio_path: '/media/jvel/data/audio/SM/10_narrative_recall/'
+#  audio_path: '/media/jvel/data/audio/SM/10_narrative_recall/'
   out_embeddings: 'data/10_narrative_recall/embeddings/'
   output_results: 'data/10_narrative_recall/results/sm_experiments_combined.csv'
 
@@ -43,7 +43,9 @@ sampling_rate: 16000
 discrimination:
   emb_type: 'hiddens'
 #  emb_type: 'convs'
+
 shuffle_data: True
+
 # data preprocessing
 dimension_reduction:
   method: None #'vae'  # pca, autoencoder (basic), vae (variational autoencoder)

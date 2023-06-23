@@ -3,7 +3,7 @@ import glob
 import os
 import sys
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
-from fancyimpute import KNN
+# from fancyimpute import KNN
 
 import numpy as np
 import torch

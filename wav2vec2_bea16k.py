@@ -6,7 +6,7 @@ from torch.nn import CrossEntropyLoss
 from transformers import AutoConfig, Wav2Vec2Processor, TrainingArguments, Trainer, AutoModelForAudioClassification
 
 # in-house functions
-from common import utils, utils_fine_tune, crate_csv_bea_from_scp
+from common import utils, utils_fine_tune, crate_csv_bea_from_scp, create_csv_eating
 from common.utils_fine_tune import Wav2Vec2ForSpeechClassification
 
 
@@ -23,22 +23,22 @@ task = 'bea-base-train-flat'
 save_path = '/srv/data/egasj/corpora/labels/{}/'.format(task)
 audio_path = "/srv/data/egasj/corpora/{}/".format(task)
 scp_file = "/srv/data/egasj/corpora/labels/{}/wav.txt".format(task)
-# crate_csv_bea_from_scp(scp_file=scp_file, out_path=save_path, train_split_data=0.85)
+
+labels_train = 'data/{}/train.csv'
+labels_dev = 'data/{}/dev.csv'
+
+create_csv_eating(audio_path, labels_train, labels_dev)
 
 # Loading the dataset into 'load_datasets' class
-size = 5000  # size of the sub-set of the data to use
-tempo_target = 'no_pause_speech'
-labels_train = 'data/{}/{}_train_{}.csv'.format(task, tempo_target, size)
-labels_dev = 'data/{}/{}_dev_{}.csv'.format(task, tempo_target, size)
 data_files = {
     'train': labels_train,
     'validation': labels_dev
 }
 
-bea16k_set = load_dataset('csv', data_files=data_files, delimiter=',', cache_dir=config['hf_cache_dir'],
-                          download_mode=DownloadMode['REUSE_DATASET_IF_EXISTS'])
-train_set = bea16k_set['train']
-val_set = bea16k_set['validation']
+whole_set = load_dataset('csv', data_files=data_files, delimiter=',', cache_dir=config['hf_cache_dir'],
+                         download_mode=DownloadMode['REUSE_DATASET_IF_EXISTS'])
+train_set = whole_set['train']
+val_set = whole_set['validation']
 print("Length of the training set: {}".format(len(train_set)))
 
 # Getting unique labels
@@ -48,7 +48,7 @@ num_labels = len(label_list)
 
 # Configurations
 lang = 'english'
-model_name_or_path = 'jonatasgrosman/wav2vec2-large-xlsr-53-english'
+model_name_or_path = 'jonatasgrosman/wav2vec2-large-xlsr-53-german'
 pooling_mode = "mean"
 
 config = AutoConfig.from_pretrained(
@@ -114,7 +114,7 @@ model.freeze_feature_extractor()
 
 epochs_list = [5.0, 10.0]
 for num_train_epochs in epochs_list:
-    out_dir = '/srv/data/egasj/code/wav2vec2_patho_deep4/runs/{0}_{1}_{2}_{3}'.format(task, num_train_epochs, lang, tempo_target)
+    out_dir = '/srv/data/egasj/code/wav2vec2_patho_deep4/runs/{0}_{1}_{2}'.format(task, num_train_epochs, lang)
     training_args = TrainingArguments(
         output_dir=out_dir,
         # output_dir="/content/gdrive/MyDrive/wav2vec2-xlsr-greek-speech-emotion-recognition"
