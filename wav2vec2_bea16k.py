@@ -1,4 +1,5 @@
 import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "2,4"
 
 import torch
 from datasets import load_dataset, DownloadMode
@@ -10,24 +11,22 @@ from common import utils, utils_fine_tune, crate_csv_bea_from_scp, create_csv_ea
 from common.utils_fine_tune import Wav2Vec2ForSpeechClassification
 
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 # os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb=860'
 
 # inspired by https://colab.research.google.com/github/m3hrdadfi/soxan/blob/main/notebooks/Emotion_recognition_in_Greek_speech_using_Wav2Vec2.ipynb#scrollTo=ZXVl9qW1Gw_-
 
-config = utils.load_config('config/config_sm.yml')
+config = utils.load_config('config/config_eating.yml')
 
-task = 'bea-base-train-flat'
+task = 'eating'
 
 # Getting data info ready
-save_path = '/srv/data/egasj/corpora/labels/{}/'.format(task)
 audio_path = "/srv/data/egasj/corpora/{}/".format(task)
 scp_file = "/srv/data/egasj/corpora/labels/{}/wav.txt".format(task)
 
 labels_train = 'data/{}/train.csv'
 labels_dev = 'data/{}/dev.csv'
 
-create_csv_eating(audio_path, labels_train, labels_dev)
+create_csv_eating(audio_path, labels_train, labels_dev) # uncomment if labels are not created yet
 
 # Loading the dataset into 'load_datasets' class
 data_files = {
@@ -47,8 +46,8 @@ label_list.sort()
 num_labels = len(label_list)
 
 # Configurations
-lang = 'english'
-model_name_or_path = 'jonatasgrosman/wav2vec2-large-xlsr-53-german'
+lang = 'german'
+model_name_or_path = 'jonatasgrosman/wav2vec2-large-xlsr-53-{}'.format(lang)
 pooling_mode = "mean"
 
 config = AutoConfig.from_pretrained(
@@ -58,7 +57,7 @@ config = AutoConfig.from_pretrained(
     id2label={i: label for i, label in enumerate(label_list)},
     finetuning_task="wav2vec2_clf",
     cache_dir=config['hf_cache_dir'],
-    problem_type='single_label_classification'
+    problem_type=None
     # loss=CrossEntropyLoss(),
 )
 setattr(config, 'pooling_mode', pooling_mode)
@@ -90,10 +89,7 @@ eval_dataset = val_set.map(
 print("Validation dataset generated successfully...\n")
 
 # Setting-up the trainer
-data_collator = utils_fine_tune.DataCollatorCTCWithPadding(processor=processor, padding=True)
-
-# Define evaluation metrics
-is_regression = False
+data_collator = utils_fine_tune.DataCollatorCTCWithPadding(processor=processor, padding=True,  max_length=10 * target_sampling_rate)
 
 # Load pre-trained model to fine-tune
 model = Wav2Vec2ForSpeechClassification.from_pretrained(
@@ -129,27 +125,32 @@ for num_train_epochs in epochs_list:
         logging_steps=10,
         learning_rate=1e-4,
         save_total_limit=2,
-    )
+        metric_for_best_model="recall",
+        warmup_ratio=0.1,
 
-    trainer = utils_fine_tune.CTCTrainer(
-        model=model,
-        data_collator=data_collator,
-        args=training_args,
-        compute_metrics=utils.compute_metrics,
-        train_dataset=train_dataset,
-        eval_dataset=eval_dataset,
-        tokenizer=processor.feature_extractor,
     )
-
-    # trainer = Trainer(
+    #
+    # trainer = utils_fine_tune.CTCTrainer(
     #     model=model,
     #     data_collator=data_collator,
     #     args=training_args,
-    #     compute_metrics=utils.compute_metrics,
+    #     compute_metrics=utils.compute_metrics_compare,
     #     train_dataset=train_dataset,
     #     eval_dataset=eval_dataset,
     #     tokenizer=processor.feature_extractor,
     # )
+
+    trainer = Trainer(
+        model=model,
+        data_collator=data_collator,
+        args=training_args,
+        compute_metrics=utils.compute_metrics_compare,
+        train_dataset=train_dataset,
+        eval_dataset=eval_dataset,
+        tokenizer=processor.feature_extractor,
+        # strategy="dp",  # This strategy exploits the GPUs better
+
+    )
 
     trainer.train()
     trainer.save_model(out_dir)

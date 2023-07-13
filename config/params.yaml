@@ -1,0 +1,57 @@
+# Parameters for the experiment should be defined here and the contents read by the respective scripts.
+#target: label  #==> for other tasks
+target: request  # for requests task
+deepspectrum:
+  extractionNetwork: densenet169
+  plotMode: mel
+  melBands: 128
+  colourMap: viridis
+  window_size:
+  hop_size:
+
+opensmile:
+  featureSet: compare16/ComParE_2016.conf
+
+
+fusion:
+  to_fuse:
+  - svm/audeep
+  - svm/deepspectrum
+  - svm/opensmile
+  - wav2vec
+
+audeep:
+  spectrograms:
+    window_width: 0.08
+    window_overlap: 0.04
+    mel_bands: 128
+    fixed_length: 30
+    clip_below_values:
+    - -30
+    - -45
+    - -60
+    - -75
+  autoencoder:
+    num_layers: 2
+    num_units: 256
+    cell: GRU
+    bidirectional_encoder: false
+    bidirectional_decoder: true
+    num_epochs: 64
+    batch_size: 512
+    learning_rate: 0.001
+    keep_prob: 0.8
+  export: fused # can be either "fused" or any of the clip_below_values
+
+
+wav2vec:
+  freezeExtractor: true
+  freezeTransformer: false
+  pooling: mean
+  group: all
+  model: jonatasgrosman/wav2vec2-large-xlsr-53-english
+#  model: facebook/data2vec-audio-base
+  epochs: 20
+
+preprocessing:
+  wav:

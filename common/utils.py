@@ -2,6 +2,7 @@ import collections
 import csv
 import itertools
 
+import evaluate
 import librosa
 import torch
 import yaml
@@ -272,12 +273,12 @@ def create_csv_depression(in_path, out_file):
     print("Data saved to {}".format(out_file))
 
 
-def create_csv_eating(in_path, out_file_train, out_file_dev):
+def create_csv_eating(in_path, out_file_train, out_file_dev, out_file_test):
     """Function to create csv file for the Eating Corpus with labels of the form:
     'file', 'label', 'etc...'
 
     :param out_file: string, name of the output file preceded with a desired parent directory. E.g.: a/path/train_set
-    :param in_path: string, path to the dataset containing the utterances.
+    :param in_path: string, path to the folder containing the utterances.
     :return: List, final csv list.
     """
 
@@ -289,15 +290,18 @@ def create_csv_eating(in_path, out_file_train, out_file_dev):
         return os.path.join(in_path, filename+'.wav')
 
     # reading original labels
-    metadata_train = pd.read_csv('data/eating/eating_train.csv', sep=',')
-    metadata_dev = pd.read_csv('data/eating/eating_dev.csv', sep=',')
+    metadata_train = pd.read_csv('../data/eating/eating_train.csv', sep=',')
+    metadata_dev = pd.read_csv('../data/eating/eating_dev.csv', sep=',')
+    metadata_test = pd.read_csv('../data/eating/eating_test.csv', sep=',')
 
     # Apply the function to create the new column
     metadata_train['path'] = metadata_train['filename'].apply(add_path)
     metadata_dev['path'] = metadata_dev['filename'].apply(add_path)
+    metadata_test['path'] = metadata_test['filename'].apply(add_path)
 
     metadata_train.to_csv(out_file_train, sep=',', index=False)
     metadata_dev.to_csv(out_file_dev, sep=',', index=False)
+    metadata_test.to_csv(out_file_test, sep=',', index=False)
     print("Data saved to {0} and {1}".format(out_file_train, out_file_dev))
 
 
@@ -325,7 +329,7 @@ class PreprocessFunction:
 
     def preprocess_function(self, samples):
         speech_list = [speech_to_array(path) for path in samples["path"]]
-        target_list = [label_to_id(label, self.label_list) for label in samples["speed"]]
+        target_list = [label_to_id(label, self.label_list) for label in samples["label"]]
 
         result = self.processor(speech_list, sampling_rate=self.target_sampling_rate)
         result["labels"] = list(target_list)
@@ -376,6 +380,24 @@ def compute_metrics(p: EvalPrediction, is_regression=False):
         return {"accuracy": (preds == p.label_ids).astype(np.float32).mean().item()}
         # return {"accuracy":  accuracy_metric.compute(predictions=preds, references=p.label_ids)}
         # return {"uar": recall_score(p.label_ids, preds, labels=[1, 0], average='macro')}
+
+
+def compute_metrics_compare(eval_pred):
+    recall_metric = evaluate.load("recall")
+    f1_metric = evaluate.load("f1")
+    """Computes spearman and pearson on predictions"""
+    recall = recall_metric.compute(
+        predictions=np.argmax(eval_pred.predictions.squeeze(), axis=-1),
+        references=eval_pred.label_ids,
+        average="macro",
+    )
+    f1 = f1_metric.compute(
+        predictions=np.argmax(eval_pred.predictions.squeeze(), axis=-1),
+        references=eval_pred.label_ids,
+        average="macro",
+    )
+    # f1 = f1_metric.compute(predictions=predictions, references=eval_pred.label_ids, average="macro")
+    return {**recall, **f1}
 
 
 def compute_metrics_2(p: EvalPrediction):
