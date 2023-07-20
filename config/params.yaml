@@ -49,9 +49,12 @@ wav2vec:
   freezeTransformer: false
   pooling: mean
   group: all
-  model: jonatasgrosman/wav2vec2-large-xlsr-53-english
+  model: jonatasgrosman/wav2vec2-large-xlsr-53-german
 #  model: facebook/data2vec-audio-base
-  epochs: 20
+  epochs: 25
 
 preprocessing:
   wav:
+
+data:
+  segment: 2

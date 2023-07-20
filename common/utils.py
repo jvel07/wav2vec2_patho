@@ -289,6 +289,9 @@ def create_csv_eating(in_path, out_file_train, out_file_dev, out_file_test):
     def add_path(filename):
         return os.path.join(in_path, filename+'.wav')
 
+    def add_duration(file_path):
+        return sf.info(os.path.join(file_path)).frames
+
     # reading original labels
     metadata_train = pd.read_csv('../data/eating/eating_train.csv', sep=',')
     metadata_dev = pd.read_csv('../data/eating/eating_dev.csv', sep=',')
@@ -298,6 +301,11 @@ def create_csv_eating(in_path, out_file_train, out_file_dev, out_file_test):
     metadata_train['path'] = metadata_train['filename'].apply(add_path)
     metadata_dev['path'] = metadata_dev['filename'].apply(add_path)
     metadata_test['path'] = metadata_test['filename'].apply(add_path)
+
+    # Apply the function to create the new Duration column
+    metadata_train['length'] = metadata_train['path'].apply(add_duration)
+    metadata_dev['length'] = metadata_dev['path'].apply(add_duration)
+    metadata_test['length'] = metadata_test['path'].apply(add_duration)
 
     metadata_train.to_csv(out_file_train, sep=',', index=False)
     metadata_dev.to_csv(out_file_dev, sep=',', index=False)

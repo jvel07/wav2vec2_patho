@@ -110,7 +110,7 @@ def speech_file_to_array_fn(path):
 
 
 def preprocess_function(examples):
-    speech_list = [speech_file_to_array_fn(path) for path in examples["filename_full"]]
+    speech_list = [speech_file_to_array_fn(path) for path in examples["path"]]
     result = processor(speech_list, sampling_rate=target_sampling_rate)
 
     if "label" in examples:
@@ -131,7 +131,7 @@ class SpeechClassifierOutput(ModelOutput):
 
 
 class Data2VecClassificationHead(nn.Module):
-    """Head for wav2vec classification task."""
+    """Head for data2vec classification task."""
 
     def __init__(self, config):
         super().__init__()
@@ -156,13 +156,13 @@ class Data2VecForSpeechClassification(Data2VecAudioPreTrainedModel):
         self.pooling_mode = config.pooling_mode
         self.config = config
 
-        self.wav2vec2 = Data2VecAudioModel(config)
+        self.data2vec = Data2VecAudioModel(config)
         self.classifier = Data2VecClassificationHead(config)
 
         self.init_weights()
 
     def freeze_feature_extractor(self):
-        self.wav2vec2.feature_extractor._freeze_parameters()
+        self.data2vec.feature_extractor._freeze_parameters()
 
     def merged_strategy(self, hidden_states, mode="mean"):
         if mode == "mean":
@@ -190,7 +190,7 @@ class Data2VecForSpeechClassification(Data2VecAudioPreTrainedModel):
         return_dict = (
             return_dict if return_dict is not None else self.config.use_return_dict
         )
-        outputs = self.wav2vec2(
+        outputs = self.data2vec(
             input_values,
             attention_mask=attention_mask,
             output_attentions=output_attentions,
@@ -258,13 +258,14 @@ if __name__ == "__main__":
         params = _params["wav2vec"]
         target = _params["target"]
 
+    model_used = _params['wav2vec']["model"].split("/")[-1]
     label_dir = "data/eating"
-    result_dir = "results/wav2vec"
-    logging_dir = "tb_logs/wav2vec"
+    result_dir = "results/{}".format(model_used)
+    logging_dir = "tb_logs/{}".format(model_used)
 
     model_checkpoint = params["model"]
 
-    batch_size = 8
+    batch_size = 16
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     target_sr = 16000
     model_name = model_checkpoint.split("/")[-1]
@@ -280,26 +281,29 @@ if __name__ == "__main__":
 
     df_train = pd.read_csv(f"{label_dir}/train.csv", encoding="utf-8")
     df_dev = pd.read_csv(f"{label_dir}/dev.csv", encoding="utf-8")
-    # df_test = pd.read_csv(f"{label_dir}/test.csv", encoding="utf-8")
+    df_test = pd.read_csv(f"{label_dir}/test.csv", encoding="utf-8")
 
-    # print(df_train)
-
-    # df_train["filename_full"] = "./data/wav/" + df_train["filename"]
+    # df_train["filename_full"] = "/srv/data/egasj/corpora/eating-wav-all/train/" + df_train["filename"] + ".wav"
+    df_train["filename_full"] = "/srv/data/egasj/corpora/eating-wav-all/" + df_train["filename"] + ".wav"
     # df_train = df_train[df_train["filename_full"].isin(all_files)]
-    # df_dev["filename_full"] = "./data/wav/" + df_dev["filename"]
+
+    df_dev["filename_full"] = "/srv/data/egasj/corpora/eating-wav-all/" + df_dev["filename"] + ".wav"
+    # df_dev["filename_full"] = "/srv/data/egasj/corpora/eating-wav-all/dev/" + df_dev["filename"] + ".wav"
     # df_dev = df_dev[df_dev["filename_full"].isin(all_files)]
+
     # df_test["filename_full"] = "./data/wav/" + df_test["filename"]
+    df_test["filename_full"] = "/srv/data/egasj/corpora/eating-wav-all/" + df_test["filename"] + ".wav"
     # df_test = df_test[df_test["filename_full"].isin(all_files)]
 
     label_encoder = LabelEncoder()
-    df_train["label"] = label_encoder.fit_transform(df_train[target])
-    df_dev["label"] = label_encoder.transform(df_dev[target])
+    df_train["label"] = label_encoder.fit_transform(df_train['label'])
+    df_dev["label"] = label_encoder.transform(df_dev['label'])
     # if len(set(df_test[target])) > 1:
-    #     df_test["label"] = label_encoder.transform(df_test[target])
+    df_test["label"] = label_encoder.transform(df_test['label'])
 
     train_dataset = Dataset.from_pandas(df_train)
     dev_dataset = Dataset.from_pandas(df_dev)
-    # test_dataset = Dataset.from_pandas(df_test)
+    test_dataset = Dataset.from_pandas(df_test)
 
     config = AutoConfig.from_pretrained(
         model_checkpoint,
@@ -308,7 +312,6 @@ if __name__ == "__main__":
     )
     setattr(config, "pooling_mode", params["pooling"])
 
-    from transformers import AutoFeatureExtractor
     processor = AutoFeatureExtractor.from_pretrained(model_checkpoint)
     target_sampling_rate = processor.sampling_rate
     data_collator = DataCollatorCTCWithPadding(
@@ -323,12 +326,12 @@ if __name__ == "__main__":
         preprocess_function, batch_size=100, batched=True, num_proc=4
     )
     print("processed devel")
-    # test_dataset = test_dataset.map(
-    #     preprocess_function, batch_size=32, batched=True, num_proc=4
-    # )
-    # print("processed test")
+    test_dataset = test_dataset.map(
+        preprocess_function, batch_size=32, batched=True, num_proc=4
+    )
+    print("processed test")
 
-    model = Data2VecForSpeechClassification.from_pretrained(
+    model = AutoModelForAudioClassification.from_pretrained(
         model_checkpoint,
         config=config,
     )
@@ -367,6 +370,7 @@ if __name__ == "__main__":
         eval_dataset=dev_dataset,
         tokenizer=processor,
         compute_metrics=compute_metrics,
+
     )
     trainer.train()
 
@@ -383,20 +387,21 @@ if __name__ == "__main__":
         }
     )
     dev_df.to_csv(join(result_dir, "predictions.devel.csv"), index=False)
-    print(compute_metrics(dev_predictions))
+    print("DEV -->", compute_metrics(dev_predictions))
 
-    # test_predictions = trainer.predict(test_dataset)
-    # test_df = pd.DataFrame(
-    #     {
-    #         "filename": test_dataset["filename"],
-    #         "prediction": label_encoder.inverse_transform(
-    #             np.argmax(test_predictions.predictions.squeeze(), axis=-1)
-    #         ),
-    #         # "true": label_encoder.inverse_transform(
-    #         #     test_predictions.label_ids.squeeze()
-    #         # )
-    #         # if len(set(test_predictions.label_ids)) > 1
-    #         # else ["?"] * test_predictions.predictions.shape[0],
-    #     }
-    # )
-    # test_df.to_csv(join(result_dir, "predictions.test.csv"), index=False)
+    test_predictions = trainer.predict(test_dataset)
+    test_df = pd.DataFrame(
+        {
+            "filename": test_dataset["filename"],
+            "prediction": label_encoder.inverse_transform(
+                np.argmax(test_predictions.predictions.squeeze(), axis=-1)
+            ),
+            "true": label_encoder.inverse_transform(
+                test_predictions.label_ids.squeeze()
+            )
+            # if len(set(test_predictions.label_ids)) > 1
+            # else ["?"] * test_predictions.predictions.shape[0],
+        }
+    )
+    test_df.to_csv(join(result_dir, "predictions.test.csv"), index=False)
+    print("TEST-->",compute_metrics(test_predictions))

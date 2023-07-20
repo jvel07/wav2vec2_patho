@@ -1,5 +1,11 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "3,4,5"
+import random as random
+
+from torch.utils.data import DataLoader
+
+from data_utils.chunk_dataset import ChunkedDataset
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "1,2"
 
 from dataclasses import dataclass
 from glob import glob
@@ -107,9 +113,20 @@ def speech_file_to_array_fn(path):
     speech = resampler(speech_array).squeeze().numpy()
     return speech
 
+def speech_file_to_array_chunks(start, stop, path):
+    utterance, _ = sf.read(path, dtype="float32", start=start, stop=stop)
+    # Convert to torch tensor
+    # utterance_torch = torch.from_numpy(utterance)
+    return utterance
 
+def get_random_chunks(length, segment):
+    seg_len = int(segment * 16000)
+    start = random.randint(0, length - seg_len)
+    stop = start + seg_len
+    return start, stop
 def preprocess_function(examples):
-    speech_list = [speech_file_to_array_fn(path) for path in examples["filename_full"]]
+    segments = [get_random_chunks(length, 2) for length in examples["length"]]
+    speech_list = [speech_file_to_array_chunks(segments[0][0], segments[0][1], path) for path in examples["path"]]
     result = processor(speech_list, sampling_rate=target_sampling_rate)
 
     if "label" in examples:
@@ -259,7 +276,7 @@ if __name__ == "__main__":
     model_used = _params['wav2vec']["model"].split("/")[-1]
     label_dir = "data/eating"
     # result_dir = "results/{}".format(model_used)
-    result_dir = "results/automodel_{}".format(model_used)
+    result_dir = "results/chunks_{}".format(model_used)
     logging_dir = "tb_logs/{}".format(model_used)
 
     model_checkpoint = params["model"]
@@ -282,17 +299,9 @@ if __name__ == "__main__":
     df_dev = pd.read_csv(f"{label_dir}/dev.csv", encoding="utf-8")
     df_test = pd.read_csv(f"{label_dir}/test.csv", encoding="utf-8")
 
-    # df_train["filename_full"] = "/srv/data/egasj/corpora/eating-wav-all/train/" + df_train["filename"] + ".wav"
-    df_train["filename_full"] = "/srv/data/egasj/corpora/eating-wav-all/" + df_train["filename"] + ".wav"
-    # df_train = df_train[df_train["filename_full"].isin(all_files)]
-
-    df_dev["filename_full"] = "/srv/data/egasj/corpora/eating-wav-all/" + df_dev["filename"] + ".wav"
-    # df_dev["filename_full"] = "/srv/data/egasj/corpora/eating-wav-all/dev/" + df_dev["filename"] + ".wav"
-    # df_dev = df_dev[df_dev["filename_full"].isin(all_files)]
-
-    # df_test["filename_full"] = "./data/wav/" + df_test["filename"]
-    df_test["filename_full"] = "/srv/data/egasj/corpora/eating-wav-all/" + df_test["filename"] + ".wav"
-    # df_test = df_test[df_test["filename_full"].isin(all_files)]
+    # df_train["filename_full"] = "/srv/data/egasj/corpora/eating-wav-all/" + df_train["filename"] + ".wav"
+    # df_dev["filename_full"] = "/srv/data/egasj/corpora/eating-wav-all/" + df_dev["filename"] + ".wav"
+    # df_test["filename_full"] = "/srv/data/egasj/corpora/eating-wav-all/" + df_test["filename"] + ".wav"
 
     label_encoder = LabelEncoder()
     df_train["label"] = label_encoder.fit_transform(df_train['label'])
@@ -311,8 +320,8 @@ if __name__ == "__main__":
     )
     setattr(config, "pooling_mode", params["pooling"])
 
-    processor = Wav2Vec2Processor.from_pretrained(model_checkpoint)
-    target_sampling_rate = processor.feature_extractor.sampling_rate
+    processor = AutoFeatureExtractor.from_pretrained(model_checkpoint)
+    target_sampling_rate = processor.sampling_rate
     data_collator = DataCollatorCTCWithPadding(
         processor=processor, padding=True, max_length=10 * target_sampling_rate
     )
@@ -329,6 +338,12 @@ if __name__ == "__main__":
         preprocess_function, batch_size=32, batched=True, num_proc=4
     )
     print("processed test")
+
+    processor = Wav2Vec2Processor.from_pretrained(model_checkpoint)
+    target_sampling_rate = processor.feature_extractor.sampling_rate
+    data_collator = DataCollatorCTCWithPadding(
+        processor=processor, padding=True, max_length=10 * target_sampling_rate
+    )
 
     model = Wav2Vec2ForSpeechClassification.from_pretrained(
         model_checkpoint,
