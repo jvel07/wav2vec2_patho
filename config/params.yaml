@@ -51,7 +51,7 @@ wav2vec:
   group: all
   model: jonatasgrosman/wav2vec2-large-xlsr-53-german
 #  model: facebook/data2vec-audio-base
-  epochs: 25
+  epochs: 50
 
 preprocessing:
   wav:

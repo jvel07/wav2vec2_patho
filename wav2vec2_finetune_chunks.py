@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 
 from data_utils.chunk_dataset import ChunkedDataset
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1,2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "4,5"
 
 from dataclasses import dataclass
 from glob import glob
@@ -281,7 +281,7 @@ if __name__ == "__main__":
 
     model_checkpoint = params["model"]
 
-    batch_size = 32
+    batch_size = 6
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     target_sr = 16000
     model_name = model_checkpoint.split("/")[-1]
@@ -295,9 +295,9 @@ if __name__ == "__main__":
     recall_metric = evaluate.load("recall")
     f1_metric = evaluate.load("f1")
 
-    df_train = pd.read_csv(f"{label_dir}/train.csv", encoding="utf-8")
-    df_dev = pd.read_csv(f"{label_dir}/dev.csv", encoding="utf-8")
-    df_test = pd.read_csv(f"{label_dir}/test.csv", encoding="utf-8")
+    df_train = pd.read_csv(f"{label_dir}/train_chunked_2secs.csv", encoding="utf-8")
+    df_dev = pd.read_csv(f"{label_dir}/dev_chunked_2secs.csv", encoding="utf-8")
+    df_test = pd.read_csv(f"{label_dir}/test_chunked_2secs.csv", encoding="utf-8")
 
     # df_train["filename_full"] = "/srv/data/egasj/corpora/eating-wav-all/" + df_train["filename"] + ".wav"
     # df_dev["filename_full"] = "/srv/data/egasj/corpora/eating-wav-all/" + df_dev["filename"] + ".wav"
@@ -364,7 +364,7 @@ if __name__ == "__main__":
         per_device_eval_batch_size=batch_size,
         num_train_epochs=params["epochs"],
         warmup_ratio=0.1,
-        logging_steps=10,
+        logging_steps=20,
         fp16=True,
         load_best_model_at_end=True,
         metric_for_best_model="recall",
@@ -420,5 +420,8 @@ if __name__ == "__main__":
     test_df.to_csv(join(result_dir, "predictions.test.csv"), index=False)
     print("TEST-->",compute_metrics(test_predictions))
 
-# DEV --> {'recall': 0.7204081632653061, 'f1': 0.7241680721926215}
-# TEST--> {'recall': 0.7473922902494331, 'f1': 0.743123588831164}
+# DEV --> {'recall': 0.761, 'f1': 0.754} --> 2 secs chunks
+# TEST--> {'recall': 0.793, 'f1': 0.787} --> 2 secs chunks
+
+# DEV --> {'recall': 0., 'f1': 0.} --> 2 secs chunks + handle remaining chunks
+# TEST--> {'recall': 0., 'f1': 0.} --> 2 secs chunks

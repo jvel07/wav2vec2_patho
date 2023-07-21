@@ -1,5 +1,5 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "3,4,5"
+os.environ["CUDA_VISIBLE_DEVICES"] = "4,5"
 
 from dataclasses import dataclass
 from glob import glob
@@ -109,7 +109,7 @@ def speech_file_to_array_fn(path):
 
 
 def preprocess_function(examples):
-    speech_list = [speech_file_to_array_fn(path) for path in examples["filename_full"]]
+    speech_list = [speech_file_to_array_fn(path) for path in examples["path"]]
     result = processor(speech_list, sampling_rate=target_sampling_rate)
 
     if "label" in examples:
@@ -259,12 +259,12 @@ if __name__ == "__main__":
     model_used = _params['wav2vec']["model"].split("/")[-1]
     label_dir = "data/eating"
     # result_dir = "results/{}".format(model_used)
-    result_dir = "results/automodel_{}".format(model_used)
+    result_dir = "results/chunked2secsPlusRemaining_{}".format(model_used)
     logging_dir = "tb_logs/{}".format(model_used)
 
     model_checkpoint = params["model"]
 
-    batch_size = 32
+    batch_size = 16
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     target_sr = 16000
     model_name = model_checkpoint.split("/")[-1]
@@ -278,21 +278,21 @@ if __name__ == "__main__":
     recall_metric = evaluate.load("recall")
     f1_metric = evaluate.load("f1")
 
-    df_train = pd.read_csv(f"{label_dir}/train.csv", encoding="utf-8")
-    df_dev = pd.read_csv(f"{label_dir}/dev.csv", encoding="utf-8")
-    df_test = pd.read_csv(f"{label_dir}/test.csv", encoding="utf-8")
+    df_train = pd.read_csv(f"{label_dir}/train_chunked_2secs.csv", encoding="utf-8")
+    df_dev = pd.read_csv(f"{label_dir}/dev_chunked_2secs.csv", encoding="utf-8")
+    df_test = pd.read_csv(f"{label_dir}/test_chunked_2secs.csv", encoding="utf-8")
 
-    # df_train["filename_full"] = "/srv/data/egasj/corpora/eating-wav-all/train/" + df_train["filename"] + ".wav"
-    df_train["filename_full"] = "/srv/data/egasj/corpora/eating-wav-all/" + df_train["filename"] + ".wav"
-    # df_train = df_train[df_train["filename_full"].isin(all_files)]
-
-    df_dev["filename_full"] = "/srv/data/egasj/corpora/eating-wav-all/" + df_dev["filename"] + ".wav"
-    # df_dev["filename_full"] = "/srv/data/egasj/corpora/eating-wav-all/dev/" + df_dev["filename"] + ".wav"
-    # df_dev = df_dev[df_dev["filename_full"].isin(all_files)]
-
-    # df_test["filename_full"] = "./data/wav/" + df_test["filename"]
-    df_test["filename_full"] = "/srv/data/egasj/corpora/eating-wav-all/" + df_test["filename"] + ".wav"
-    # df_test = df_test[df_test["filename_full"].isin(all_files)]
+    # # df_train["filename_full"] = "/srv/data/egasj/corpora/eating-wav-all/train/" + df_train["filename"] + ".wav"
+    # df_train["filename_full"] = "/srv/data/egasj/corpora/eating-wav-all/" + df_train["filename"] + ".wav"
+    # # df_train = df_train[df_train["filename_full"].isin(all_files)]
+    #
+    # df_dev["filename_full"] = "/srv/data/egasj/corpora/eating-wav-all/" + df_dev["filename"] + ".wav"
+    # # df_dev["filename_full"] = "/srv/data/egasj/corpora/eating-wav-all/dev/" + df_dev["filename"] + ".wav"
+    # # df_dev = df_dev[df_dev["filename_full"].isin(all_files)]
+    #
+    # # df_test["filename_full"] = "./data/wav/" + df_test["filename"]
+    # df_test["filename_full"] = "/srv/data/egasj/corpora/eating-wav-all/" + df_test["filename"] + ".wav"
+    # # df_test = df_test[df_test["filename_full"].isin(all_files)]
 
     label_encoder = LabelEncoder()
     df_train["label"] = label_encoder.fit_transform(df_train['label'])
@@ -320,7 +320,7 @@ if __name__ == "__main__":
     train_dataset = train_dataset.map(
         preprocess_function, batch_size=100, batched=True, num_proc=4
     )
-    print("processed train")
+    print("processed train with size", len(train_dataset))
     dev_dataset = dev_dataset.map(
         preprocess_function, batch_size=100, batched=True, num_proc=4
     )
@@ -407,3 +407,9 @@ if __name__ == "__main__":
 
 # DEV --> {'recall': 0.7204081632653061, 'f1': 0.7241680721926215}
 # TEST--> {'recall': 0.7473922902494331, 'f1': 0.743123588831164}
+
+# DEV --> {'recall': 0.761, 'f1': 0.754} --> 2 secs chunks
+# TEST--> {'recall': 0.793, 'f1': 0.787} --> 2 secs chunks
+
+# DEV --> {'recall': 0., 'f1': 0.} --> 2 secs chunks + handle remaining chunks
+# TEST--> {'recall': 0., 'f1': 0.} --> 2 secs chunks
