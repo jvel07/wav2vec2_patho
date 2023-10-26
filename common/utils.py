@@ -7,7 +7,7 @@ import librosa
 import torch
 import yaml
 from datasets import Dataset, load_metric
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, GroupShuffleSplit
 import glob
 import os
 
@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 import soundfile as sf
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler, Normalizer
+from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler, Normalizer, LabelEncoder
 from transformers import EvalPrediction
 from yaml import SafeLoader
 from tqdm import tqdm
@@ -436,7 +436,7 @@ class ComputeMetricsASR:
 
 
 def map_to_array(batch):
-    speech, _ = librosa.load(batch["file"], sr=None)
+    speech, _ = librosa.load(batch["path"], sr=None)
     batch["speech"] = speech
     return batch
 
@@ -622,3 +622,69 @@ class CustomSubset(Dataset):
 
     def __len__(self):
         return len(self.targets)
+
+
+def split_depisda_corpus(data):
+    encoder = LabelEncoder()
+    data['file_prefix'] = data['filename'].str[:6]
+    data['file_prefix_enc'] = encoder.fit_transform(data['file_prefix'])
+    n_grupos = data['file_prefix_enc'].values
+    X = data.drop(columns=['label'])
+    y = data['label']
+    gss_train = GroupShuffleSplit(n_splits=1, random_state=42, test_size=0.25, train_size=0.75)
+    gss_dev_test = GroupShuffleSplit(n_splits=1, random_state=42, test_size=0.25, train_size=0.75)
+
+    for i, (train_index, temp_index) in enumerate(gss_train.split(X=X, y=y, groups=n_grupos)):
+        print(f"Fold {i}:")
+        print(f"  Train: index={train_index}, group={n_grupos[train_index]}")
+        print(f"  Test:  index={temp_index}, group={n_grupos[temp_index]}")
+        x_train, x_temp, y_train, y_temp = X.iloc[train_index], X.iloc[temp_index], y.iloc[train_index], y.iloc[
+            temp_index]
+
+    train_df = pd.concat([x_train, y_train], axis=1)
+
+    rest_groups = x_temp['file_prefix_enc'].values
+    for i, (dev_index, test_index) in enumerate(gss_dev_test.split(X=x_temp, y=y_temp, groups=rest_groups)):
+        print(f"Fold {i}:")
+        print(f"  Dev: index={dev_index}, group={rest_groups[dev_index]}")
+        print(f"  Test:  index={test_index}, group={rest_groups[test_index]}")
+        x_dev, x_test, y_dev, y_test = x_temp.iloc[dev_index], x_temp.iloc[test_index], y_temp.iloc[dev_index], \
+        y_temp.iloc[test_index]
+
+    dev_df = pd.concat([x_dev, y_dev], axis=1)
+    test_df = pd.concat([x_test, y_test], axis=1)
+
+    train_df.to_csv('./metadata/depression/depression_train.csv', sep=',', index=False)
+    dev_df.to_csv('./metadata/depression/depression_dev.csv', sep=',', index=False)
+    test_df.to_csv('./metadata/depression/depression_test.csv', sep=',', index=False)
+
+    return train_df, dev_df, test_df
+
+
+def get_dataset_partitions_pd(df, train_split=0.8, val_split=0.1, test_split=0.1, target_variable=None):
+    assert (train_split + test_split + val_split) == 1
+
+    # Only allows for equal validation and test splits
+    assert val_split == test_split
+
+    # Shuffle
+    df_sample = df.sample(frac=1, random_state=12)
+
+    # Specify seed to always have the same split distribution between runs
+    # If target variable is provided, generate stratified sets
+    if target_variable is not None:
+        grouped_df = df_sample.groupby(target_variable)
+        arr_list = [np.split(g, [int(train_split * len(g)), int((1 - val_split) * len(g))]) for i, g in grouped_df]
+
+        train_ds = pd.concat([t[0] for t in arr_list])
+        val_ds = pd.concat([t[1] for t in arr_list])
+        test_ds = pd.concat([v[2] for v in arr_list])
+
+    else:
+        indices_or_sections = [int(train_split * len(df)), int((1 - val_split) * len(df))]
+        train_ds, val_ds, test_ds = np.split(df_sample, indices_or_sections)
+
+    return train_ds, val_ds, test_ds
+
+
+

@@ -1,4 +1,4 @@
-name,Sex,Age,label,Smoke,file
+name,Sex,Age,label,Smoke,path
 DE_001,F,23.0,32.0,no,/srv/data/egasj/corpora/DEPISDA_16k/DE/DE_001.wav
 DE_002,F,58.0,10.0,no,/srv/data/egasj/corpora/DEPISDA_16k/DE/DE_002.wav
 DE_003,F,50.0,32.0,yes,/srv/data/egasj/corpora/DEPISDA_16k/DE/DE_003.wav

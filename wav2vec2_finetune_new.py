@@ -1,5 +1,11 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "4,5"
+
+import math
+from sklearn.model_selection import train_test_split
+
+from common import split_depisda_corpus, get_dataset_partitions_pd
+
+# os.environ["CUDA_VISIBLE_DEVICES"] = "2,3,7"
 
 from dataclasses import dataclass
 from glob import glob
@@ -214,13 +220,17 @@ class Wav2Vec2ForSpeechClassification(Wav2Vec2PreTrainedModel):
 
             if self.config.problem_type == "regression":
                 loss_fct = F.mse_loss
-                loss = loss_fct(logits.view(-1, self.num_labels), labels.unsqueeze(-1))
+                # print("logits:", logits.view(-1, self.num_labels).shape, "values:", logits.view(-1, self.num_labels), "dtype:", logits.view(-1, self.num_labels).dtype)
+                # print("labels:", labels.unsqueeze(-1).shape, "values:", labels.unsqueeze(-1),
+                #       "dtype:", labels.unsqueeze(-1).dtype)
+                loss = loss_fct(logits.view(-1, self.num_labels), labels.unsqueeze(-1).float())
             elif self.config.problem_type == "single_label_classification":
                 loss_fct = CrossEntropyLoss()
                 loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
             elif self.config.problem_type == "multi_label_classification":
                 loss_fct = BCEWithLogitsLoss()
                 loss = loss_fct(logits, labels)
+        # print("Problem type:", self.config.problem_type)
 
         if not return_dict:
             output = (logits,) + outputs[2:]
@@ -250,21 +260,40 @@ def compute_metrics(eval_pred):
     return {**recall, **f1}
 
 
+def compute_regression_metrics(eval_pred):
+    """Computes spearman and pearson on predictions"""
+    preds = eval_pred.predictions[0] if isinstance(eval_pred.predictions, tuple) else eval_pred.predictions
+    preds = np.squeeze(preds)
+
+    # pearsons = pearsons_metric.compute(
+    #     predictions=preds,
+    #     references=eval_pred.label_ids,
+    # )
+    # mse = mse_metric.compute(
+    #     predictions=preds,
+    #     references=eval_pred.label_ids,
+    # )
+    # # f1 = f1_metric.compute(predictions=predictions, references=eval_pred.label_ids, average="macro")
+    # # return {**recall, **f1}
+    # return {**pearsons, **mse}
+
+    return {"mse": ((preds - eval_pred.label_ids) ** 2).mean().item()}
+
 if __name__ == "__main__":
     with open("config/params.yaml") as f:
         _params = yaml.safe_load(f)
         params = _params["wav2vec"]
         target = _params["target"]
+    batch_size = 2
 
     model_used = _params['wav2vec']["model"].split("/")[-1]
-    label_dir = "data/eating"
+    label_dir = "metadata/depression"
     # result_dir = "results/{}".format(model_used)
-    result_dir = "results/chunked2secsPlusRemaining_{}".format(model_used)
+    result_dir = "results/depression/chunked4secs_{}_{}batch".format(model_used, str(batch_size))
     logging_dir = "tb_logs/{}".format(model_used)
 
     model_checkpoint = params["model"]
 
-    batch_size = 16
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     target_sr = 16000
     model_name = model_checkpoint.split("/")[-1]
@@ -278,9 +307,33 @@ if __name__ == "__main__":
     recall_metric = evaluate.load("recall")
     f1_metric = evaluate.load("f1")
 
-    df_train = pd.read_csv(f"{label_dir}/train_chunked_2secs.csv", encoding="utf-8")
-    df_dev = pd.read_csv(f"{label_dir}/dev_chunked_2secs.csv", encoding="utf-8")
-    df_test = pd.read_csv(f"{label_dir}/test_chunked_2secs.csv", encoding="utf-8")
+    pearsons_metric = evaluate.load("pearsonr")
+    mse_metric = evaluate.load("mse")
+
+    data = pd.read_csv(f"{label_dir}/chunked_4secs.csv", encoding="utf-8")
+    random_numbers = np.random.randint(1, 18, size=data['label'].isna().sum()) # to fill HC NaN values
+    data.loc[data['label'].isna(), 'label'] = random_numbers
+    data['label'] = data['label'].astype(int)
+
+    # strat group by filename
+    df_train, df_dev, df_test = split_depisda_corpus(data)
+
+    # Separate features (X) and labels (y)
+    # X = data.drop(columns=['label'])
+    # y = data['label']
+    #
+    # # Perform a stratified split
+    # X_train, X_temp, y_train, y_temp = train_test_split(X, y, test_size=0.4, stratify=y, random_state=42)
+    # X_dev, X_test, y_dev, y_test = train_test_split(X_temp, y_temp, test_size=0.5, stratify=y_temp, random_state=42)
+    #
+    # # Create DataFrames for each split
+    # df_train = pd.concat([X_train, y_train], axis=1)
+    # df_dev = pd.concat([X_dev, y_dev], axis=1)
+    # df_test = pd.concat([X_test, y_test], axis=1)
+
+    # df_train = pd.read_csv(f"{label_dir}/train_chunked_4secs.csv", encoding="utf-8")
+    # df_dev = pd.read_csv(f"{label_dir}/dev_chunked_4secs.csv", encoding="utf-8")
+    # df_test = pd.read_csv(f"{label_dir}/test.csv", encoding="utf-8")
 
     # # df_train["filename_full"] = "/srv/data/egasj/corpora/eating-wav-all/train/" + df_train["filename"] + ".wav"
     # df_train["filename_full"] = "/srv/data/egasj/corpora/eating-wav-all/" + df_train["filename"] + ".wav"
@@ -306,8 +359,10 @@ if __name__ == "__main__":
 
     config = AutoConfig.from_pretrained(
         model_checkpoint,
-        num_labels=len(label_encoder.classes_),
-        problem_type=None,
+        # num_labels=len(label_encoder.classes_),
+        num_labels=1,  # for regression
+        problem_type='regression',
+        # problem_type=None,
     )
     setattr(config, "pooling_mode", params["pooling"])
 
@@ -352,7 +407,7 @@ if __name__ == "__main__":
         logging_steps=10,
         fp16=True,
         load_best_model_at_end=True,
-        metric_for_best_model="recall",
+        metric_for_best_model="pearsonr",
         push_to_hub=False,
         gradient_checkpointing=True,
         save_total_limit=2,
@@ -368,7 +423,7 @@ if __name__ == "__main__":
         train_dataset=train_dataset,
         eval_dataset=dev_dataset,
         tokenizer=processor.feature_extractor,
-        compute_metrics=compute_metrics,
+        compute_metrics=compute_regression_metrics,
 
     )
     trainer.train()
@@ -386,7 +441,8 @@ if __name__ == "__main__":
         }
     )
     dev_df.to_csv(join(result_dir, "predictions.devel.csv"), index=False)
-    print("DEV -->", compute_metrics(dev_predictions))
+    # print("DEV -->", compute_metrics(dev_predictions))
+    print("DEV -->", compute_regression_metrics(dev_predictions))
 
     test_predictions = trainer.predict(test_dataset)
     test_df = pd.DataFrame(
@@ -403,7 +459,24 @@ if __name__ == "__main__":
         }
     )
     test_df.to_csv(join(result_dir, "predictions.test.csv"), index=False)
-    print("TEST-->",compute_metrics(test_predictions))
+    print("TEST on chunks-->",compute_regression_metrics(test_predictions))
+
+    # computing test scores on original --non-chunked-- wavs
+    data_orig = pd.read_csv(f"{label_dir}/metadata_depisda.csv", encoding="utf-8")
+    test_files_set = df_test['filename'].str[:6].unique()
+    orig_test_df = data_orig[data_orig['name'].isin(test_files_set)].copy()
+    orig_test_df['label'] = orig_test_df['label'].fillna(0)
+    orig_test_df["label"] = label_encoder.transform(orig_test_df['label'])
+
+    orig_test_dataset = Dataset.from_pandas(orig_test_df)
+    orig_test_dataset = orig_test_dataset.map(
+        preprocess_function, batch_size=32, batched=True, num_proc=4
+    )
+
+    # print("TEST-->",compute_metrics(test_predictions))
+    print("TEST on originals-->",compute_regression_metrics(test_predictions))
+
+# ON EATING CORPUS
 
 # DEV --> {'recall': 0.7204081632653061, 'f1': 0.7241680721926215}
 # TEST--> {'recall': 0.7473922902494331, 'f1': 0.743123588831164}
@@ -411,5 +484,24 @@ if __name__ == "__main__":
 # DEV --> {'recall': 0.761, 'f1': 0.754} --> 2 secs chunks
 # TEST--> {'recall': 0.793, 'f1': 0.787} --> 2 secs chunks
 
-# DEV --> {'recall': 0., 'f1': 0.} --> 2 secs chunks + handle remaining chunks
-# TEST--> {'recall': 0., 'f1': 0.} --> 2 secs chunks
+# DEV --> {'recall': 0.903, 'f1': 0.903} --> 16 batch 2 secs chunks + handle remaining chunks (2733 samples)
+# TEST--> {'recall': 0.845, 'f1': 0.843} --> 16 batch 2 secs chunks
+
+# DEV --> {'recall': 0.904., 'f1': 0.905} --> 16 batch 4 secs chunks + handle remaining chunks (1523 samples)
+# TEST--> {'recall': 0.853, 'f1': 0.852} --> 16 batch 4 secs chunks
+
+# DEV --> {'recall': 0.912., 'f1': 0.912} --> 8 batch 4 secs chunks + handle remaining chunks (1523 samples)
+# TEST--> {'recall': 0.856, 'f1': 0.855} --> 8 batch 4 secs chunks
+
+# DEV --> {'recall': 0.., 'f1': 0.} --> 6 batch 4 secs chunks + handle remaining chunks (1523 samples)
+# TEST--> {'recall': 0., 'f1': 0.} --> 6 batch 4 secs chunks
+
+# train on 6 batch 4 secs chunks and evaluate on non-chunked original eating test data
+# TEST--> {'recall': 0.8665532879818595, 'f1': 0.865481555877025}
+
+
+
+##### DEPRESSION chunked 4 secs
+# DEV --> {'pearsonr': 0.701, 'mse': 83.164}
+# TEST--> {'pearsonr': 0.746, 'mse': 87.226}
+# TEST--> {'pearsonr': 0.756, 'mse': 88.912}

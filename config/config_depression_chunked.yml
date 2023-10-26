@@ -5,6 +5,9 @@ hf_cache_dir: '/srv/data/egasj/hf_cache/'
 #hf_cache_dir: '/home/user/Documents/hf_cache/'
 #hf_cache_dir: '/media/jvel/data/hf_cache/'
 
+segment: 0.5 # in seconds
+sample_rate: 16000
+
 pretrained_model_details:
 #  checkpoint_path: '/srv/data/egasj/code/wav2vec2_patho/wav2vec2-large-xlsr-beaBase-20percent/checkpoint-51800'
 
@@ -30,11 +33,13 @@ pretrained_model_details:
 paths:
 #  to_labels: 'data/10_narrative_recall/labels_maci.csv'
 #  to_labels: 'data/depression/labels_local.csv' # jvel PC
-  to_labels: 'data/depression/labels.csv' # deep 4
-  to_save_metadata: 'data/depression/'
-#  audio_path: '/media/jvel/data/audio/DEPISDA_16k'
-  audio_path: '/srv/data/egasj/corpora/DEPISDA_16k'
-  out_embeddings: 'data/depression/embeddings/'
+  train_csv: 'metadata/depression/depression_train.csv' # deep 4
+  dev_csv: 'metadata/depression/depression_dev.csv' # deep 4
+  test_csv: 'metadata/depression/depression_test.csv' # deep 4
+#  to_save_metadata: 'data/depression/'
+  audio_path: '/media/jvel/data/audio/DEPISDA_16k'
+#  audio_path: '/srv/data/egasj/corpora/DEPISDA_16k'
+  out_embeddings: 'data/depression/embeddings_chunked_4s/'
   output_results: 'data/depression/results/experiments.csv'
 
 feature_combination: False

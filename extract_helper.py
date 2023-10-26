@@ -259,13 +259,17 @@ def extract_ecapa_original(dataset_list, model, config):
 
     print("Feature extraction process started...")
     # Iterating datasets
-    for index, dataset in enumerate(dataset_list):  # this for is just in case of the existence of 'dev', 'test' datasets
+    for index, dataset in enumerate((pbar := tqdm(dataset_list, position=0))):  # this for is just in case of the existence of 'dev', 'test' datasets
         list_embeddings = []
         # iterating utterances
         for i in range(len(dataset)):
             # getting the i utterance
             utterance = torch.tensor(dataset[i]["speech"])
-            print("Processing utterance {}...".format(i))
+            # discard tiny chunks
+            seg_len = int(config['segment'] * config['sample_rate'])
+            if len(utterance) < seg_len:
+                continue
+            pbar.set_description("Processing utterance {}.".format(dataset[i]['filename']))
 
             # extracting features
             embeddings = model.encode_batch(utterance)
@@ -276,10 +280,16 @@ def extract_ecapa_original(dataset_list, model, config):
         embs = np.asanyarray(np.vstack(list_embeddings))
 
         # defining paths and saving
-        utterance_name = os.path.basename(dataset[i]['file']).split(".")[0]
+        utterance_name = os.path.basename(dataset[i]['filename']).split(".")[0]
         path_embs = config['paths']['out_embeddings'] + model_used
         os.makedirs(path_embs, exist_ok=True)
-        file_embs = "{0}/embs_ecapa".format(path_embs)
+        if index == 0:
+            dataset_name = 'train'
+        elif index == 1:
+            dataset_name = 'dev'
+        else:
+            dataset_name = 'test'
+        file_embs = "{0}/embs_ecapa_{1}".format(path_embs, dataset_name)
         np.save(file_embs, embs)
         print("Utterance embeddings (convs and hidden states) saved to {}".format(file_embs))
         # print("/n With shapes {}, and {}, respectively.".format(current_utterance_convs_pooled.shape, current_utterance_hidden_pooled.shape))
