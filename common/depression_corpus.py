@@ -35,9 +35,9 @@ def split_depisda_corpus(data):
     test_df = pd.concat([x_test, y_test], axis=1)
 
     try:
-        train_df.to_csv('../metadata/depression/depured_depression_train.csv', sep=',', index=False)
-        dev_df.to_csv('../metadata/depression/depured_depression_dev.csv', sep=',', index=False)
-        test_df.to_csv('../metadata/depression/depured_depression_test.csv', sep=',', index=False)
+        train_df.to_csv('../metadata/depression/depured_depression_train_4secs.csv', sep=',', index=False)
+        dev_df.to_csv('../metadata/depression/depured_depression_dev_4secs.csv', sep=',', index=False)
+        test_df.to_csv('../metadata/depression/depured_depression_test_4secs.csv', sep=',', index=False)
         print("CSV files saved successfully!")
     except Exception as e:
         print("Error saving the csv files: ", e)
@@ -50,9 +50,6 @@ if __name__ == '__main__':
     label_dir = "../metadata/depression"
 
     data = pd.read_csv(f"{label_dir}/depured_complete_depisda16k_chunked_4secs.csv", encoding="utf-8")
-    random_numbers = np.random.randint(1, 18, size=data['label'].isna().sum())  # to fill HC NaN values
-    data.loc[data['label'].isna(), 'label'] = random_numbers
-    data['label'] = data['label'].astype(int)
 
     # strat group by filename
     split_depisda_corpus(data)
