@@ -1,5 +1,6 @@
 import os
 
+import sklearn as sk
 import torch
 from scipy.stats import stats
 from sklearn.metrics import accuracy_score, roc_auc_score, f1_score, precision_score, recall_score, mean_squared_error
@@ -12,7 +13,8 @@ import pandas as pd
 
 from common.metrics import calculate_eer, calculate_sensitivity_specificity
 from discrimination.discrimination_utils import load_data, roc_auc_score_multiclass, check_model_used, load_joint_embs, \
-    load_baseline_feats, reduce_dimensions_vae, reduce_dimensions_basic_autoencoder, fill_missing_values
+    load_baseline_feats, reduce_dimensions_vae, reduce_dimensions_basic_autoencoder, fill_missing_values, \
+    load_data_per_set
 from discrimination.svm_utils import train_svm
 from common.dimension_reduction import ReduceDims, Autoencoder, train, weights_init_uniform_rule, \
     VariationalAutoencoder, CustomLoss, train_vae
@@ -34,25 +36,39 @@ model_used = check_model_used(checkpoint_path)
 # data = load_baseline_feats(path='data/10_narrative_recall/compare/features.compare2016.rr45.10_narrative_recall.txt',
 #                            delimiter=',')
 
-if config['feature_combination']:
-    data = load_joint_embs(config=config)
-else:
-    data = load_data(config=config)  # loading data
+train_data, dev_data, test_data = load_data_per_set(config)
 
 # bea_train_flat = load_data(config=config_bea)  # load bea embeddings
-df_labels = pd.read_csv(label_file)  # loading labels
+df_train = pd.read_csv(train_label_file)  # loading labels
+df_dev = pd.read_csv(dev_label_file)  # loading labels
+df_test = pd.read_csv(test_label_file)  # loading labels
+
 # checking for missing values
 # healthy missing values where handled by KNN based on columns sex, smoke, age, and BDI
-if df_labels['BDI'].isna().any():
-    df_labels = fill_missing_values(df_labels)
+if df_train['label'].isna().any():
+    df_train_labels = fill_missing_values(df_train)
 
-data['label'] = df_labels.BDI.values  # adding labels to data
+if df_dev['label'].isna().any():
+    df_dev_labels = fill_missing_values(df_dev)
+
+if df_test['label'].isna().any():
+    df_test_labels = fill_missing_values(df_test)
+
+# discard tiny chunks
+# seg_len = int(config['segment'] * config['sample_rate'])
+# df_train = df_train[df_train['length_in_frames'] >= seg_len]
+# df_dev = df_dev[df_dev['length_in_frames'] >= seg_len]
+# df_test = df_test[df_test['length_in_frames'] >= seg_len]
 
 # Shuffling data if needed
 if shuffle_data:
-    data = data.sample(frac=1).reset_index(drop=True)
+    train_data = train_data.sample(frac=1).reset_index(drop=True)
+    dev_data = dev_data.sample(frac=1).reset_index(drop=True)
+    test_data = test_data.sample(frac=1).reset_index(drop=True)
 
-x_train, y_train = data.iloc[:, :-1].values, data.label.values  # train and labels
+x_train, y_train = train_data.values, df_train['label'].values  # train and labels
+x_dev, y_dev = dev_data.values, df_dev['label'].values  # dev and labels
+x_test, y_test = test_data.values, df_test['label'].values  # test and labels
 
 # Standardizing data before reducing dimensions
 # scaler_type = config_bea['data_scaling']['scaler_type']
@@ -63,6 +79,8 @@ if scaler_type != 'None':
     # bea_train_flat = scaler.transform(x_train)
     # bea_train_flat = scaler.transform(bea_train_flat)
     x_train = scaler.transform(x_train)
+    x_dev = scaler.transform(x_dev)
+    x_test = scaler.transform(x_test)
     print("Train data standardized...")
 
 # Only modify this from the config file not here!
@@ -111,10 +129,10 @@ sens_scores = []
 eer_scores = []
 for c in list_c:
     # TRY ALSO MLP OR KNN!!!!
-    array_preds, array_trues = train_svm(svm_type='nusvr-loocv', X=x_train, y=y_train, C=c,
-                                         kernel='linear', keep_feats=None, feat_selection=False)
-    # array_preds, array_trues, array_probs = train_svm(svm_type='rbf-loocv', C=c, X=x_train, y=y_train)
-
+    svc = sk.svm.LinearSVR(C=c, max_iter=100000)
+    svc.fit(x_train, y_train)
+    array_preds = svc.predict(x_dev)
+    array_trues = y_dev
     corr, _ = stats.pearsonr(array_trues, array_preds)
     corr_scores.append(corr)
 

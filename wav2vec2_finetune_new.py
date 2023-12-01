@@ -3,7 +3,6 @@ import os
 import math
 from sklearn.model_selection import train_test_split
 
-from common import split_depisda_corpus, get_dataset_partitions_pd
 
 # os.environ["CUDA_VISIBLE_DEVICES"] = "2,3,7"
 
@@ -47,6 +46,8 @@ from transformers.models.wav2vec2.modeling_wav2vec2 import (
     Wav2Vec2Model,
     Wav2Vec2PreTrainedModel,
 )
+
+from common.depression_corpus import split_depisda_corpus
 
 
 @dataclass
@@ -265,10 +266,10 @@ def compute_regression_metrics(eval_pred):
     preds = eval_pred.predictions[0] if isinstance(eval_pred.predictions, tuple) else eval_pred.predictions
     preds = np.squeeze(preds)
 
-    # pearsons = pearsons_metric.compute(
-    #     predictions=preds,
-    #     references=eval_pred.label_ids,
-    # )
+    pearsons = pearsons_metric.compute(
+        predictions=preds,
+        references=eval_pred.label_ids,
+    )
     # mse = mse_metric.compute(
     #     predictions=preds,
     #     references=eval_pred.label_ids,
@@ -277,14 +278,14 @@ def compute_regression_metrics(eval_pred):
     # # return {**recall, **f1}
     # return {**pearsons, **mse}
 
-    return {"mse": ((preds - eval_pred.label_ids) ** 2).mean().item()}
+    return {"mse": ((preds - eval_pred.label_ids) ** 2).mean().item(), **pearsons}
 
 if __name__ == "__main__":
     with open("config/params.yaml") as f:
         _params = yaml.safe_load(f)
         params = _params["wav2vec"]
         target = _params["target"]
-    batch_size = 2
+    batch_size = 16
 
     model_used = _params['wav2vec']["model"].split("/")[-1]
     label_dir = "metadata/depression"
@@ -310,13 +311,19 @@ if __name__ == "__main__":
     pearsons_metric = evaluate.load("pearsonr")
     mse_metric = evaluate.load("mse")
 
-    data = pd.read_csv(f"{label_dir}/chunked_4secs.csv", encoding="utf-8")
-    random_numbers = np.random.randint(1, 18, size=data['label'].isna().sum()) # to fill HC NaN values
+    data = pd.read_csv(f"{label_dir}/complete_depisda16k_chunked_4secs.csv", encoding="utf-8")
+    random_numbers = np.random.randint(1, 18, size=data['label'].isna().sum())  # to fill HC NaN values
     data.loc[data['label'].isna(), 'label'] = random_numbers
     data['label'] = data['label'].astype(int)
 
     # strat group by filename
     df_train, df_dev, df_test = split_depisda_corpus(data)
+
+    num_spk_train = np.unique(df_train['file_prefix'].values).shape
+    num_spk_dev = np.unique(df_dev['file_prefix'].values).shape
+    num_spk_test = np.unique(df_test['file_prefix'].values).shape
+
+    print("Number of speakers in train: {}, dev: {}, test: {}".format(num_spk_train, num_spk_dev, num_spk_test))
 
     # Separate features (X) and labels (y)
     # X = data.drop(columns=['label'])
@@ -366,8 +373,10 @@ if __name__ == "__main__":
     )
     setattr(config, "pooling_mode", params["pooling"])
 
-    processor = Wav2Vec2Processor.from_pretrained(model_checkpoint)
-    target_sampling_rate = processor.feature_extractor.sampling_rate
+    # processor = Wav2Vec2Processor.from_pretrained(model_checkpoint)
+    processor = Wav2Vec2FeatureExtractor.from_pretrained(model_checkpoint)
+    # target_sampling_rate = processor.feature_extractor.sampling_rate
+    target_sampling_rate = processor.sampling_rate
     data_collator = DataCollatorCTCWithPadding(
         processor=processor, padding=True, max_length=10 * target_sampling_rate
     )
@@ -422,44 +431,45 @@ if __name__ == "__main__":
         data_collator=data_collator,
         train_dataset=train_dataset,
         eval_dataset=dev_dataset,
-        tokenizer=processor.feature_extractor,
+        # tokenizer=processor.feature_extractor,
+        tokenizer=processor,
         compute_metrics=compute_regression_metrics,
 
     )
     trainer.train()
 
     dev_predictions = trainer.predict(dev_dataset)
-    dev_df = pd.DataFrame(
-        {
-            "filename": dev_dataset["filename"],
-            "prediction": label_encoder.inverse_transform(
-                np.argmax(dev_predictions.predictions.squeeze(), axis=-1)
-            ),
-            "true": label_encoder.inverse_transform(
-                dev_predictions.label_ids.squeeze()
-            ),
-        }
-    )
-    dev_df.to_csv(join(result_dir, "predictions.devel.csv"), index=False)
+    # dev_df = pd.DataFrame(
+    #     {
+    #         "filename": dev_dataset["filename"],
+    #         "prediction": label_encoder.inverse_transform(
+    #             np.argmax(dev_predictions.predictions.squeeze(), axis=-1)
+    #         ),
+    #         "true": label_encoder.inverse_transform(
+    #             dev_predictions.label_ids.squeeze()
+    #         ),
+    #     }
+    # )
+    # dev_df.to_csv(join(result_dir, "predictions.devel.csv"), index=False)
     # print("DEV -->", compute_metrics(dev_predictions))
     print("DEV -->", compute_regression_metrics(dev_predictions))
 
     test_predictions = trainer.predict(test_dataset)
-    test_df = pd.DataFrame(
-        {
-            "filename": test_dataset["filename"],
-            "prediction": label_encoder.inverse_transform(
-                np.argmax(test_predictions.predictions.squeeze(), axis=-1)
-            ),
-            "true": label_encoder.inverse_transform(
-                test_predictions.label_ids.squeeze()
-            )
-            # if len(set(test_predictions.label_ids)) > 1
-            # else ["?"] * test_predictions.predictions.shape[0],
-        }
-    )
-    test_df.to_csv(join(result_dir, "predictions.test.csv"), index=False)
-    print("TEST on chunks-->",compute_regression_metrics(test_predictions))
+    # test_df = pd.DataFrame(
+    #     {
+    #         "filename": test_dataset["filename"],
+    #         "prediction": label_encoder.inverse_transform(
+    #             np.argmax(test_predictions.predictions.squeeze(), axis=-1)
+    #         ),
+    #         "true": label_encoder.inverse_transform(
+    #             test_predictions.label_ids.squeeze()
+    #         )
+    #         # if len(set(test_predictions.label_ids)) > 1
+    #         # else ["?"] * test_predictions.predictions.shape[0],
+    #     }
+    # )
+    # test_df.to_csv(join(result_dir, "predictions.test.csv"), index=False)
+    print("TEST on chunks-->", compute_regression_metrics(test_predictions))
 
     # computing test scores on original --non-chunked-- wavs
     data_orig = pd.read_csv(f"{label_dir}/metadata_depisda.csv", encoding="utf-8")
@@ -474,7 +484,7 @@ if __name__ == "__main__":
     )
 
     # print("TEST-->",compute_metrics(test_predictions))
-    print("TEST on originals-->",compute_regression_metrics(test_predictions))
+    print("TEST on originals-->", compute_regression_metrics(test_predictions))
 
 # ON EATING CORPUS
 
@@ -501,7 +511,12 @@ if __name__ == "__main__":
 
 
 
-##### DEPRESSION chunked 4 secs
+##### DEPRESSION chunked 4 secs xslr
 # DEV --> {'pearsonr': 0.701, 'mse': 83.164}
 # TEST--> {'pearsonr': 0.746, 'mse': 87.226}
 # TEST--> {'pearsonr': 0.756, 'mse': 88.912}
+
+# with hungarian xlsr finetuned
+# DEV --> {'pearsonr': 0.731, 'mse': 76.29}
+# TEST--> {'pearsonr': 0.743, 'mse': 77.61}
+

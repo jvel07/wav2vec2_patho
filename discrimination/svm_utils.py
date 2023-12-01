@@ -21,6 +21,26 @@ def train_linearsvm_cpu(X, y, X_eval, c):
     return y_prob
 
 
+def test_linearsvm_cpu(X, y, X_eval, best_c):
+    svc = sk.svm.LinearSVC(class_weight="balanced", C=best_c, max_iter=100000)
+    svc.fit(X, y)
+    y_prob = svc._predict_proba_lr(X_eval)
+    return y_prob
+
+
+def train_linearSVR_cpu(X, y, X_eval, c):
+    svc = svm.NuSVR(kernel='linear', C=c, verbose=0, max_iter=100000)
+    svc.fit(X, y)
+    y_prob = svc.predict(X_eval)
+    return y_prob
+
+
+def test_linearSVR_cpu(X, y, X_eval, best_c):
+    svc = svm.NuSVR(kernel='linear', C=best_c, verbose=0, max_iter=100000)
+    svc.fit(X, y)
+    y_prob = svc.predict(X_eval)
+    return y_prob
+
 # def train_linearsvm_gpu(X, y, X_eval, c):
 #     svc = thunder(kernel='linear', C=c, class_weight='balanced',
 #                   probability=True, max_iter=100000, gpu_id=0)
@@ -139,7 +159,8 @@ def train_svm(svm_type, C, X, y, X_eval=None, **kwargs):
         'rbf': lambda: train_RBF_cpu(X, y, X_eval, C),
         'linear-loocv': lambda: train_loocv_svm(X, y, C),
         'rbf-loocv': lambda: train_loocv_dwd(X, y, C),
-        'nusvr-loocv': lambda: loocv_NuSVR_cpu_pearson(X, y, C, **kwargs)
+        'nusvr-loocv': lambda: loocv_NuSVR_cpu_pearson(X, y, C, **kwargs),
+        'linearsvr': lambda: train_linearSVR_cpu(X, y, X_eval, C),
     }
     return switcher.get(svm_type, lambda: "Error {} is not an option! Choose from: \n {}.".format(svm_type,
                                                                                                   switcher.keys()))()

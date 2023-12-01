@@ -49,7 +49,7 @@ wav2vec:
   freezeTransformer: false
   pooling: mean
   group: all
-  model: jonatasgrosman/wav2vec2-large-xlsr-53-german
+  model: facebook/wav2vec2-large-xlsr-53
 #  model: facebook/data2vec-audio-base
   epochs: 13
 

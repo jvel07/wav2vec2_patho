@@ -1,11 +1,13 @@
 task: 'depression'
 size_bea: 'all' #'15360' #'10240' # take a subset from the total 57548 files for each: wavs and txt
 
-hf_cache_dir: '/srv/data/egasj/hf_cache/'
+#hf_cache_dir: '/srv/data/egasj/hf_cache/'
 #hf_cache_dir: '/home/user/Documents/hf_cache/'
-#hf_cache_dir: '/media/jvel/data/hf_cache/'
+hf_cache_dir: '/media/jvel/data/hf_cache/'
 
-segment: 0.5 # in seconds
+emb_type: 'w2v2' # w2v2, ecapa
+
+segment: 1 # in seconds
 sample_rate: 16000
 
 pretrained_model_details:
@@ -17,8 +19,8 @@ pretrained_model_details:
 #  checkpoint_path: '/media/jvel/data/audio/Bea-base/beast-xls-r-300m_v0.1/beast-xls-r-300m/checkpoint'
 
 #  checkpoint_path: 'facebook/wav2vec2-large-xlsr-53'
-#  checkpoint_path: 'jonatasgrosman/wav2vec2-large-xlsr-53-hungarian'
-  checkpoint_path: 'speechbrain/spkrec-ecapa-voxceleb'
+  checkpoint_path: 'jonatasgrosman/wav2vec2-large-xlsr-53-hungarian'
+#  checkpoint_path: 'speechbrain/spkrec-ecapa-voxceleb'
 
 #  checkpoint_path: '/srv/data/egasj/code/wav2vec2_patho/runs/bea-base-train-flat_10.0_no_pause_speech/checkpoint-6000'
 
@@ -33,9 +35,9 @@ pretrained_model_details:
 paths:
 #  to_labels: 'data/10_narrative_recall/labels_maci.csv'
 #  to_labels: 'data/depression/labels_local.csv' # jvel PC
-  train_csv: 'metadata/depression/depression_train.csv' # deep 4
-  dev_csv: 'metadata/depression/depression_dev.csv' # deep 4
-  test_csv: 'metadata/depression/depression_test.csv' # deep 4
+  train_csv: 'metadata/depression/depured_depression_train_4secs.csv' # deep 4
+  dev_csv: 'metadata/depression/depured_depression_dev_4secs.csv' # deep 4
+  test_csv: 'metadata/depression/depured_depression_test_4secs.csv' # deep 4
 #  to_save_metadata: 'data/depression/'
   audio_path: '/media/jvel/data/audio/DEPISDA_16k'
 #  audio_path: '/srv/data/egasj/corpora/DEPISDA_16k'
@@ -69,4 +71,4 @@ data_scaling:
 #  scaling_model_path: "data/bea-base-train-flat/dim_red/train_flat" #.pkl
   scaling_model_path: "data/bea-base-train-flat/dim_red/compare_func_xv" #.pkl
    # "minmax" "standard" "robust" "normalizer" null
-  scaler_type: "robust"
+  scaler_type: 'minmax'

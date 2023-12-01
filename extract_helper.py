@@ -235,6 +235,75 @@ def extract_ecapa_and_save(dataset_list, model, chunk_size, config):
             # print("/n With shapes {}, and {}, respectively.".format(current_utterance_convs_pooled.shape, current_utterance_hidden_pooled.shape))
 
 
+def extract_w2v2_original(dataset_list, model, feature_extractor, config):
+    """Function to extract embeddings (convolutional features and hidden states) from a given wav2vec2 model
+
+    :param chunk_size: int, Size of the chunks to take for each utterance.
+    :param model: Torch Wav2Vec2 pre-trained model (loaded).
+    :param dataset_list: List. Use it for more than one set (e.g., dev, test).
+    :param feature_extractor: Object. An instance of either Wav2Vec2Processor or Wav2Vec2FeatureExtractor.
+    :return:
+    """
+    checkpoint_path = config['pretrained_model_details']['checkpoint_path']
+
+    if "jonatasgrosman" in checkpoint_path:
+        model_used = checkpoint_path.split('/')[-1]
+    elif "facebook" in checkpoint_path:
+        model_used = checkpoint_path.split('/')[-1]
+    elif "emotion" in checkpoint_path:
+        model_used = checkpoint_path.split('/')[-1]
+    elif "yangwang825" in checkpoint_path:
+        model_used = checkpoint_path.split('/')[-1]
+    else:
+        model_used = checkpoint_path.split('/')[-2]
+
+    print("Feature extraction process started...")
+    # Iterating datasets
+    for index, dataset in enumerate((pbar := tqdm(dataset_list, position=0))):  # this for is just in case of the existence of 'dev', 'test' datasets
+        list_embeddings = []
+        # iterating utterances
+        for i in range(len(dataset)):
+            list_current_embeddings = []
+            # getting the i utterance
+            utterance = torch.tensor(dataset[i]["speech"])
+            # discard tiny chunks
+            seg_len = int(config['segment'] * config['sample_rate'])
+            if len(utterance) < seg_len:
+                continue
+            pbar.set_description("Processing utterance {}.".format(dataset[i]['filename']))
+
+            # iterating frames of the utterance
+            input_values_utterance = feature_extractor(utterance, return_tensors="pt", padding=True,
+                                                       feature_size=1, sampling_rate=config['sample_rate'])
+
+            with torch.no_grad():
+                outputs_segment = model(input_values_utterance.input_values, input_values_utterance.attention_mask)
+
+            embeddings = outputs_segment.last_hidden_state.detach().numpy()
+            embeddings = np.mean(embeddings, axis=1)  # taking the mean
+            # print(embeddings.shape)
+            list_embeddings.append(embeddings)
+
+        # united array of all the wavs
+        embs = np.vstack(list_embeddings)
+
+        # defining paths and saving
+        utterance_name = os.path.basename(dataset[i]['filename']).split(".")[0]
+        path_embs = config['paths']['out_embeddings'] + model_used
+        os.makedirs(path_embs, exist_ok=True)
+        if index == 0:
+            dataset_name = 'train'
+        elif index == 1:
+            dataset_name = 'dev'
+        else:
+            dataset_name = 'test'
+        file_embs = "{0}/embs_w2v2_{1}".format(path_embs, dataset_name)
+        np.save(file_embs, embs)
+        print("Utterance embeddings (convs and hidden states) saved to {}".format(file_embs))
+        # print("/n With shapes {}, and {}, respectively.".format(current_utterance_convs_pooled.shape, current_utterance_hidden_pooled.shape))
+
+
+
 def extract_ecapa_original(dataset_list, model, config):
     """Function to extract embeddings (convolutional features and hidden states) from a given wav2vec2 model
 
@@ -269,7 +338,7 @@ def extract_ecapa_original(dataset_list, model, config):
             seg_len = int(config['segment'] * config['sample_rate'])
             if len(utterance) < seg_len:
                 continue
-            pbar.set_description("Processing utterance {}.".format(dataset[i]['filename']))
+            pbar.set_description("Processing utterance {}. Label {}".format(dataset[i]['filename'], dataset[i]['label']))
 
             # extracting features
             embeddings = model.encode_batch(utterance)
@@ -297,7 +366,7 @@ def extract_ecapa_original(dataset_list, model, config):
 ######### ECAPA END   #########
 
 
-def     extract_embeddings_and_save(dataset_list, feature_extractor, model, chunk_size, config):
+def extract_embeddings_and_save(dataset_list, feature_extractor, model, chunk_size, config):
     """Function to extract embeddings (convolutional features and hidden states) from a given wav2vec2 model
 
     :param chunk_size: int, Size of the chunks to take for each utterance.
@@ -328,8 +397,6 @@ def     extract_embeddings_and_save(dataset_list, feature_extractor, model, chun
         #                                      feature_size=1, sampling_rate=sampling_rate)
 
         # iterating utterances
-        if len(dataset) < 1:
-            os.sys
         # for i in range(0, len(dataset)):
         for i in (pbar := tqdm(range(0, len(dataset)), desc="Extracting Embeddings", position=0)):
             list_current_utterance_convs = []
@@ -337,7 +404,7 @@ def     extract_embeddings_and_save(dataset_list, feature_extractor, model, chun
 
             # getting the i utterance
             utterance = dataset[i]["speech"]
-            utterance_name = os.path.basename(dataset[i]['file']).split(".")[0]
+            utterance_name = os.path.basename(dataset[i]['path_y']).split(".")[0]
             # print("Processing utterance {}...".format(i))
             pbar.set_description("Processing utterance {}".format(utterance_name))
 
@@ -367,7 +434,9 @@ def     extract_embeddings_and_save(dataset_list, feature_extractor, model, chun
 
                 # extract features corresponding to the sequence of last hidden states
                 segment_hidden = outputs_segment.last_hidden_state.detach().numpy()
+                print(segment_hidden.shape)
                 list_current_utterance_hiddens.append(segment_hidden)
+                print(len(list_current_utterance_hiddens))
 
             # accumulating each wav into a list
             # current_utterance_convs = np.concatenate(list_current_utterance_convs, axis=1)

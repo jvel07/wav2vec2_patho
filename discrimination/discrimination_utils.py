@@ -173,6 +173,20 @@ def load_baseline_feats(path, delimiter):
     return data
 
 
+def load_data_per_set(config):
+    checkpoint_path = config['pretrained_model_details']['checkpoint_path']
+    model_used = check_model_used(checkpoint_path)
+
+    # model_used = config['pretrained_model_details']['checkpoint_path'].split('/')[-2]
+    path_embs = os.path.join(config['paths']['out_embeddings'], model_used + '/')  # config['discrimination']['emb_type']+'/')
+
+    train = pd.DataFrame(np.load(path_embs + 'embs_{}_train.npy'.format(config['emb_type'])))
+    dev = pd.DataFrame(np.load(path_embs + 'embs_{}_dev.npy'.format(config['emb_type'])))
+    test = pd.DataFrame(np.load(path_embs + 'embs_{}_test.npy'.format(config['emb_type'])))
+
+    return train, dev, test
+
+
 class LoadMulti:
     def __init__(self):
 
